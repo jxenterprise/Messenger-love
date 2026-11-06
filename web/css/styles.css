@@ -326,6 +326,7 @@ a {
   font-weight: 800;
   font-size: 16px;
   letter-spacing: 0.01em;
+  text-align: center;
   transition: background-color 0.15s, transform 0.15s;
 }
 .boton:hover {
@@ -595,6 +596,71 @@ a {
   min-height: 44px;
   padding: 0 10px;
   font-size: 15px;
+}
+
+/* "Casi listo": la app publicada aún no está conectada a Supabase */
+.caja-conexion {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+  padding: 16px;
+  border-radius: 18px;
+  background: var(--acento-suave);
+  text-align: center;
+}
+.caja-conexion p {
+  margin: 0;
+  font-size: 15px;
+  color: var(--tinta);
+  text-wrap: pretty;
+}
+.caja-conexion .titulo-caja {
+  font-size: 17px;
+  font-weight: 900;
+}
+.caja-conexion.peligro {
+  background: var(--peligro-suave);
+  text-align: left;
+}
+.caja-conexion.peligro .titulo-caja {
+  color: var(--peligro);
+}
+.pantalla-entrada code {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--superficie-2);
+  font-size: 0.88em;
+  overflow-wrap: anywhere;
+}
+.ayuda-conexion {
+  border: 1px solid var(--borde);
+  border-radius: 16px;
+  font-size: 14.5px;
+  color: var(--tinta-suave);
+}
+.ayuda-conexion summary {
+  padding: 12px 14px;
+  border-radius: 16px;
+  font-weight: 800;
+  color: var(--tinta);
+  cursor: pointer;
+}
+.ayuda-conexion[open] summary {
+  padding-bottom: 6px;
+}
+.ayuda-conexion .pasos {
+  margin: 6px 14px 10px;
+}
+.ayuda-conexion .pasos li {
+  font-size: 14.5px;
+  color: var(--tinta);
+}
+.ayuda-conexion > p {
+  margin: 0 14px 14px;
+}
+.ayuda-conexion + .boton {
+  margin-top: 16px;
 }
 
 /* ---------- 6. Pantalla del PIN ---------- */

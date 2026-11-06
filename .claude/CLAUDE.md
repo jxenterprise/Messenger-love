@@ -6,9 +6,16 @@ Contexto para retomar este proyecto en otra sesión. Léelo completo antes de to
 
 Chat privado (PWA) para exactamente **2 personas**: Jampier (JX, dueño del proyecto) y Estrellita, su novia. Proyecto **personal**: no lleva el crédito "Diseño y desarrollo: JX Company". Nombre: "Messenger Estrellita y Jampier ❤️"; nombre corto en el ícono: "E ❤ J".
 
-- Front: HTML + CSS + JS (módulos ES, sin framework ni build) en `web/`, publicado con **Direct Upload** en Cloudflare Pages (`*.pages.dev`).
+- Front: HTML + CSS + JS (módulos ES, sin framework ni build) en `web/`, publicado en Cloudflare Pages **conectado al repo de GitHub** `jxenterprise/Messenger-love` (público). Rama `main` = producción: cada push a `main` publica solo; las demás ramas generan vistas previas. Proyecto: `messenger-estrellita-jampier-18.pages.dev`.
+  - **Build output directory = `web`** (build command vacío). Si queda vacío, Cloudflare publica la raíz del repo: `/` da 404 en blanco y quedan expuestos README, SQL y pruebas. Eso pasó en el primer despliegue (6 nov 2026).
+  - `_headers`, `404.html` y `robots.txt` solo funcionan porque están en la raíz de lo publicado (`web/`).
 - Back: **Supabase** (Auth correo+contraseña, Postgres con RLS, Realtime, Storage privado, Edge Function `enviar-push`).
 - Llamadas de voz/video: **pendiente para la versión 2** (lo pidió así).
+
+## Estado (6 nov 2026)
+
+- Código completo y probado. **Pendiente de JX:** poner *Build output directory* = `web` en Cloudflare, crear el proyecto Supabase (pasos 1–6 del README) y pegar URL + publishable key (+ VAPID pública) en `web/js/config.js`.
+- JX no quiere un "bot": sin Supabase el sitio publicado muestra "Casi listo", nunca la pareja simulada (ver `FALTA_CONEXION` abajo).
 
 ## Preferencias de JX (respetarlas siempre)
 
@@ -18,14 +25,20 @@ Chat privado (PWA) para exactamente **2 personas**: Jampier (JX, dueño del proy
 - Archivos entregables con nombres descriptivos y guiones bajos (ej. `Messenger_Estrellita_y_Jampier.zip`).
 - Él prefiere que Claude proponga las ideas y mejoras ("dame lo mejor"), y que se le pregunte con formularios de opciones cuando hay decisiones.
 - Verificar en la web la información técnica actual (Supabase y Cloudflare cambian seguido).
+- Este archivo vive **escondido en `.claude/CLAUDE.md`** (Claude Code lo lee igual): JX pidió que en la raíz del repo solo se vea el README. No volver a crear `CLAUDE.md` en la raíz ni mencionarlo en el README.
 
 ## Estructura
 
 ```
-web/                      ← lo único que se sube a Cloudflare Pages
-  index.html              pantallas: carga, entrada, chat, PIN
+.claude/CLAUDE.md         este archivo (escondido a pedido de JX)
+.gitignore                artefactos de las pruebas (node_modules, capturas, .deno…)
+web/                      ← lo único que publica Cloudflare Pages (Build output directory)
+  index.html              pantallas: carga, conexión ("Casi listo"), entrada, chat, PIN
   css/styles.css          tokens claro (piel+lila) / oscuro (negro+rojo suave), componentes
-  js/config.js            ✏️ URL + publishable key de Supabase + VAPID pública; MODO_DEMO si están vacías
+  js/config.js            ✏️ URL + publishable key de Supabase + VAPID pública; abajo: limpieza de lo pegado,
+                          CLAVE_PELIGROSA (sb_secret_/service_role → aviso rojo, no se usa), CONECTADA,
+                          MODO_DEMO (solo __VISTA_PREVIA__, localhost/127.0.0.1 o ?demo, y nunca si está CONECTADA)
+                          y FALTA_CONEXION (publicada sin datos → pantalla "Casi listo", sin backend)
   js/app.js               arranque, tema, sesión, PIN, ajustes, notificaciones, instalación, latido
   js/chat.js              chat: estado, render, bandeja offline, caché, gestos, grabación, búsqueda
   js/backend-supabase.js  única puerta a Supabase (misma interfaz que backend-demo.js)
@@ -37,7 +50,9 @@ web/                      ← lo único que se sube a Cloudflare Pages
   js/almacen.js           localStorage ('eyj:' prefijo) + IndexedDB (kv)
   js/iconos.js            íconos SVG (Lucide ISC + propios)
   js/vendor/              supabase-js 2.118.0 (UMD), jSquash WebP
-  sw.js                   service worker: precache, caché de fotos, push, clic en aviso
+  sw.js                   service worker: precache, caché de fotos, push, clic en aviso.
+                          La página se guarda como './', nunca 'index.html': Cloudflare redirige
+                          /index.html → / y una respuesta redirigida rompe abrir la app sin señal
   manifest.webmanifest    PWA + atajo "Te extraño" (?accion=te-extrano)
   _headers                CSP y cabeceras de seguridad de Cloudflare
 supabase/01_estructura.sql           tablas, RLS, RPC, realtime, bucket (idempotente)
@@ -68,12 +83,15 @@ Si cambias algo aquí, cambia los tres lugares.
 - Avisos discretos por defecto ("E ❤ J · Tienes un mensaje nuevo 💌"); con `notif_con_texto` del destinatario muestran nombre y texto.
 - Cada vez que cambie un archivo de `web/`: subir `VERSION` en `web/sw.js` y `CONFIG.VERSION`, y mantener la lista `ARCHIVOS_APP` de `sw.js` al día. Orígenes nuevos → actualizar la CSP de `_headers`.
 - Vista previa (`window.__VISTA_PREVIA__`): sin service worker, sin historial, sin botón de guardar foto, banner "Vista previa".
+- El sitio publicado nunca muestra la pareja simulada por defecto: sin Supabase → "Casi listo"; el demo solo con `?demo` (o en localhost para las pruebas).
 
 ## Pruebas (`desarrollo/`)
 
 - `prueba_sql.py` — 86 pruebas de RLS/RPC contra PostgreSQL 16 local con `supabase_simulado.sql`.
 - `prueba_funcion.mjs` (34 pruebas, Node) y `e2e_deno.mjs` (Deno real) — la Edge Function; descifra con `http_ece` y verifica la firma VAPID.
-- `prueba_app.py`, `prueba_clave.py`, `prueba_bloqueo.py` — la app en Chrome (modo demo), celular y PC, claro y oscuro.
+- `prueba_app.py`, `prueba_clave.py`, `prueba_bloqueo.py` — la app en Chrome (modo demo, sirviendo `web/` en 127.0.0.1), celular y PC, claro y oscuro.
+- `prueba_conexion.py` (24 pruebas) — simula un dominio publicado (`eyj.prueba`): "Casi listo" sin datos, `?demo`, login con datos reales (config.js reemplazado al vuelo), aviso rojo con la clave secreta.
+- `servidor_cloudflare.mjs` + `prueba_sin_senal.mjs` — servidor que imita las redirecciones de Cloudflare Pages y prueba que la app instalada abre sin señal.
 - `construir_vista_previa.mjs` — genera el HTML único de la vista previa publicada como artifact.
 Instrucciones en `desarrollo/LEEME_PRUEBAS.md`.
 

@@ -1,8 +1,10 @@
 /* ==========================================================================
    config.js — ✏️ ZONA EDITABLE: aquí conectas la app con tu Supabase
    --------------------------------------------------------------------------
-   Mientras SUPABASE_URL o SUPABASE_KEY estén vacíos, la app abre en
-   MODO DEMO (mensajes de ejemplo que no salen del dispositivo).
+   Mientras SUPABASE_URL o SUPABASE_KEY estén vacíos, la app publicada
+   muestra la pantalla "Casi listo" (sin mensajes de ejemplo ni respuestas
+   automáticas). Apenas pegues los 2 datos, sale la pantalla para entrar con
+   correo y contraseña y los mensajes son 100 % reales entre ustedes dos.
    La guía paso a paso está en el README.md del proyecto.
    ========================================================================== */
 
@@ -25,9 +27,44 @@ export const CONFIG = {
 
   // Datos de la app
   NOMBRE_APP: 'Messenger Estrellita y Jampier',
-  VERSION: '1.0.0',
+  VERSION: '1.0.1',
 };
 
-/** true cuando la app debe funcionar con mensajes de ejemplo. */
+/* --------------------------------------------------------------------------
+   ⛔ De aquí para abajo no hay que tocar nada.
+   -------------------------------------------------------------------------- */
+
+// Limpia lo que se pegue de más: espacios, o "/" y "/rest/v1/" al final de la URL
+CONFIG.SUPABASE_URL = String(CONFIG.SUPABASE_URL || '').trim().replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '');
+CONFIG.SUPABASE_KEY = String(CONFIG.SUPABASE_KEY || '').trim();
+CONFIG.VAPID_PUBLIC_KEY = String(CONFIG.VAPID_PUBLIC_KEY || '').trim();
+
+/** ¿Pegaron por error la clave SECRETA (sb_secret_… o la service_role)? Esa abre toda la base de datos. */
+function esClaveSecreta(clave) {
+  if (/^sb_secret_/i.test(clave)) return true;
+  const partes = clave.split('.');
+  if (partes.length !== 3) return false;
+  try {
+    return JSON.parse(atob(partes[1].replace(/-/g, '+').replace(/_/g, '/')))?.role === 'service_role';
+  } catch {
+    return false;
+  }
+}
+
+/** true si en SUPABASE_KEY quedó la clave secreta: la app se niega a usarla. */
+export const CLAVE_PELIGROSA = esClaveSecreta(CONFIG.SUPABASE_KEY);
+
+/** true cuando ya están los datos de Supabase (y la clave es la pública). */
+export const CONECTADA = !!CONFIG.SUPABASE_URL && !!CONFIG.SUPABASE_KEY && !CLAVE_PELIGROSA;
+
+// El modo demo (pareja simulada que responde sola) solo existe en la vista
+// previa, en el computador de pruebas (localhost) o abriendo la app con ?demo.
+const enEsteEquipo = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+const pideDemo = new URLSearchParams(location.search).has('demo');
+
+/** true cuando la app debe funcionar con mensajes de ejemplo (nada sale del dispositivo). */
 export const MODO_DEMO =
-  window.__VISTA_PREVIA__ === true || !CONFIG.SUPABASE_URL || !CONFIG.SUPABASE_KEY;
+  window.__VISTA_PREVIA__ === true || (!CONECTADA && !CLAVE_PELIGROSA && (enEsteEquipo || pideDemo));
+
+/** true cuando la app está publicada pero todavía no se conectó con Supabase. */
+export const FALTA_CONEXION = !MODO_DEMO && !CONECTADA;
