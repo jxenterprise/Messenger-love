@@ -7,14 +7,16 @@
    ✏️ Cada vez que cambies archivos de la app, sube el número de VERSION:
       así todos los celulares reciben la versión nueva.
    ========================================================================== */
-const VERSION = 'eyj-v1.0.0';
+const VERSION = 'eyj-v1.0.1';
 const CACHE_APP = `${VERSION}-app`;
 const CACHE_MEDIA = 'eyj-media-v1';
 const MAX_FOTOS = 400;
 
+// La página principal se guarda como './' (no 'index.html'): Cloudflare Pages
+// redirige /index.html → / y una respuesta redirigida no sirve para abrir la
+// app sin señal.
 const ARCHIVOS_APP = [
   './',
-  'index.html',
   'manifest.webmanifest',
   'css/styles.css',
   'js/tema-inicial.js',
@@ -66,6 +68,17 @@ function conLimite(promesa, ms) {
   return Promise.race([promesa, new Promise((_, rechazar) => setTimeout(() => rechazar(new Error('tiempo agotado')), ms))]);
 }
 
+/** Copia "limpia" de una respuesta que llegó tras una redirección (el navegador
+    rechaza las redirigidas cuando se usan para abrir una página). */
+async function sinRedireccion(respuesta) {
+  if (!respuesta.redirected) return respuesta;
+  return new Response(await respuesta.blob(), {
+    status: respuesta.status,
+    statusText: respuesta.statusText,
+    headers: respuesta.headers,
+  });
+}
+
 /** Primero internet (para tener siempre lo último); sin señal, lo guardado. */
 async function primeroRed(peticion, claveCache) {
   const cache = await caches.open(CACHE_APP);
@@ -77,7 +90,7 @@ async function primeroRed(peticion, claveCache) {
     return await conLimite(red, 3500);
   } catch {
     const guardada = await cache.match(claveCache || peticion, { ignoreSearch: true });
-    if (guardada) return guardada;
+    if (guardada) return sinRedireccion(guardada);
     return red.catch(() => Response.error());
   }
 }
@@ -127,7 +140,7 @@ self.addEventListener('fetch', (evento) => {
   if (url.origin !== self.location.origin) return; // Supabase y demás: directo a internet
 
   if (peticion.mode === 'navigate') {
-    evento.respondWith(primeroRed(peticion, 'index.html'));
+    evento.respondWith(primeroRed(peticion, './'));
     return;
   }
   if (/\/(fonts|img|js\/vendor)\//.test(url.pathname)) {

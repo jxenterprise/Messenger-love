@@ -39,6 +39,21 @@ python3 prueba_bloqueo.py http://127.0.0.1:8765/ capturas
 
 Con `CHROME=/ruta/a/google-chrome` usa Chrome (recomendado: su micrófono falso graba notas de voz reales). Al final debe decir **SIN ERRORES EN CONSOLA** y deja capturas en `capturas/`.
 
+En `127.0.0.1` la app sin datos de Supabase entra sola en modo demo. Publicada (cualquier otro dominio) muestra "Casi listo"; esto lo revisa:
+
+```bash
+python3 prueba_conexion.py http://127.0.0.1:8765/ capturas   # 24 pruebas: "Casi listo", ?demo, login real y clave secreta
+```
+
+## 3b. Como queda en Cloudflare Pages (sin señal)
+
+Cloudflare redirige `/index.html` → `/`. Este servidor imita eso para probar que la app instalada abre sin internet:
+
+```bash
+node servidor_cloudflare.mjs ../web 8771            # en otra terminal
+node prueba_sin_senal.mjs http://127.0.0.1:8771/    # debe decir SIN SEÑAL: TODO OK
+```
+
 ## 4. Generador de claves y vista previa
 
 ```bash

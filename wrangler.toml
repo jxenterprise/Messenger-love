@@ -1,0 +1,13 @@
+# ==========================================================================
+# wrangler.toml — Configuración de Cloudflare Pages (no hay que tocarlo)
+# --------------------------------------------------------------------------
+# Le dice a Cloudflare que publique SOLO la carpeta web/ (la app).
+# Sin esto, Cloudflare publica la raíz del repositorio: la página sale en
+# blanco (error 404) y quedan a la vista el README, los SQL y lo demás.
+#
+# Mientras exista este archivo, esa opción del panel de Cloudflare
+# (Build output directory) se ve bloqueada: se cambia aquí, no allá.
+# ==========================================================================
+name = "messenger-estrellita-jampier-18"
+pages_build_output_dir = "web"
+compatibility_date = "2025-09-01"

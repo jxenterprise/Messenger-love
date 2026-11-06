@@ -5,7 +5,7 @@
    Además: temas claro/oscuro, ajustes, notificaciones push, instalación
    como app, bloqueo automático al salir y "latido" (en línea / últ. vez).
    ========================================================================== */
-import { CONFIG, MODO_DEMO } from './config.js';
+import { CLAVE_PELIGROSA, CONFIG, FALTA_CONEXION, MODO_DEMO } from './config.js';
 import { icono, pintarIconos } from './iconos.js';
 import { kv, local } from './almacen.js';
 import { borrarPin, guardarPin, tienePin, verificarPin } from './candado.js';
@@ -69,6 +69,7 @@ const ctx = {
 function mostrarPantalla(nombre) {
   app.pantalla = nombre;
   $('#pantalla-carga').hidden = nombre !== 'carga';
+  $('#pantalla-conexion').hidden = nombre !== 'conexion';
   $('#pantalla-entrada').hidden = nombre !== 'entrada';
   $('#pantalla-pin').hidden = nombre !== 'pin';
   $('#pantalla-chat').hidden = !(nombre === 'chat' || (nombre === 'pin' && app.chatAbierto));
@@ -397,6 +398,18 @@ function detenerLatido() {
    ========================================================================== */
 function errorEntrada(texto) {
   $('#error-entrada').textContent = texto;
+}
+
+/**
+ * La app está publicada, pero web/js/config.js aún no tiene los datos de
+ * Supabase: se explica qué falta en vez de mostrar una conversación de mentira.
+ * Si pegaron la clave secreta por error, se avisa y no se usa.
+ */
+function mostrarFaltaConexion() {
+  $('#conexion-pendiente').hidden = CLAVE_PELIGROSA;
+  $('#conexion-peligro').hidden = !CLAVE_PELIGROSA;
+  $('#enlace-demo').hidden = CLAVE_PELIGROSA;
+  mostrarPantalla('conexion');
 }
 
 function mostrarEntrada() {
@@ -1020,6 +1033,13 @@ async function arrancar() {
   pintarIconos();
   aplicarTema(local.leer('tema', 'auto'));
   configurarAlturaVisible();
+
+  // Publicada pero sin Supabase todavía: nada de mensajes de ejemplo
+  if (FALTA_CONEXION) {
+    mostrarFaltaConexion();
+    return;
+  }
+
   document.addEventListener('pointerdown', prepararSonido, { capture: true, passive: true });
   document.addEventListener('keydown', prepararSonido, { capture: true, passive: true });
 

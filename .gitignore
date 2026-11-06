@@ -1,0 +1,26 @@
+# ==========================================================================
+# .gitignore — Archivos que NO se suben a GitHub
+# --------------------------------------------------------------------------
+# Son cosas que se crean solas al correr las pruebas de la carpeta
+# desarrollo/ o que deja el sistema operativo. No hacen parte de la app.
+# ==========================================================================
+
+# Pruebas automáticas (desarrollo/)
+desarrollo/node_modules/
+desarrollo/package-lock.json
+desarrollo/.deno/
+desarrollo/capturas/
+desarrollo/vista-previa/
+desarrollo/funcion-empaquetada.mjs
+__pycache__/
+
+# Archivos del sistema y de editores
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+*.log
+
+# Notas privadas de Claude (cada quien las suyas, no se comparten)
+CLAUDE.local.md
+.claude/settings.local.json

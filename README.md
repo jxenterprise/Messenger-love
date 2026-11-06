@@ -12,15 +12,17 @@ Todo funciona con planes **gratis**: Supabase (la base de datos y el tiempo real
 
 | Carpeta / archivo | Para qué sirve |
 |---|---|
-| `web/` | **La app.** Esta carpeta (y solo esta) es la que se sube a Cloudflare. |
+| `web/` | **La app.** Esta carpeta (y solo esta) es la que publica Cloudflare. |
 | `web/js/config.js` | ✏️ El único archivo que tienes que editar: aquí van tus datos de Supabase. |
 | `supabase/01_estructura.sql` | Crea la base de datos y todas las reglas de seguridad. |
 | `supabase/02_nueva_contrasena.sql` | Plantilla por si alguno olvida su contraseña. |
 | `supabase/functions/enviar-push/index.ts` | La función que manda las notificaciones. |
 | `herramientas/generar-claves-vapid.html` | Crea las claves de las notificaciones (se abre con doble clic). |
 | `despertador/worker.js` | Evita que Supabase "duerma" el proyecto si pasan una semana sin escribirse. |
-| `desarrollo/` | Pruebas automáticas (no se sube a ningún lado). |
-| `CLAUDE.md` | Contexto técnico, para retomar el proyecto con Claude más adelante. |
+| `desarrollo/` | Pruebas automáticas (no se publican en la web). |
+| `wrangler.toml` | Le dice a Cloudflare que publique solo la carpeta `web`. No hay que tocarlo. |
+
+> 💡 **¿Por qué al abrir la página sale "Casi listo"?** Porque la app todavía no tiene los datos de Supabase (pasos 1 a 4). Apenas los pegues en `web/js/config.js`, aparece la pantalla para entrar con correo y contraseña y los mensajes van y vienen de verdad entre los dos celulares. No hay respuestas automáticas: lo que uno escribe le llega al otro.
 
 ---
 
@@ -65,11 +67,13 @@ SUPABASE_URL: 'https://abcdefghijkl.supabase.co',
 SUPABASE_KEY: 'sb_publishable_xxxxxxxxxxxxxxxx',
 ```
 
-> 🔒 La *publishable key* es pública por diseño (lo que protege los datos son las reglas de seguridad del paso 2). **Nunca** pegues en la web la **secret key** (`sb_secret_…`) ni la **service_role**: esas abren toda la base de datos.
+**Hacerlo directo en GitHub (sin instalar nada):** en tu repositorio abre `web` → `js` → `config.js` → toca el lápiz ✏️ (**Edit this file**) → pega los 2 datos → **Commit changes…** → **Commit changes**. Cloudflare publica el cambio solo, en 1 o 2 minutos.
+
+> 🔒 La *publishable key* es pública por diseño (lo que protege los datos son las reglas de seguridad del paso 2). **Nunca** pegues en la web la **secret key** (`sb_secret_…`) ni la **service_role**: esas abren toda la base de datos. Si por error la pegas, la app se niega a usarla y muestra un aviso rojo; en ese caso cámbiala por la publishable y crea una secret nueva en Supabase.
 
 ## Paso 5 · Claves de las notificaciones
 
-1. Abre `herramientas/generar-claves-vapid.html` con doble clic (en Chrome, Edge o Safari del computador).
+1. Abre `herramientas/generar-claves-vapid.html` con doble clic (en Chrome, Edge o Safari del computador). Si no lo tienes en el computador: en GitHub abre el archivo → botón **Download raw file** (⬇) → doble clic al archivo descargado.
 2. Toca **Generar claves** y escribe tu correo real.
 3. En Supabase: **Edge Functions** → **Secrets** → pega lo que copia el botón **Copiar las 3 para Supabase** → **Save**.
    Deben quedar 3 secretos: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` y `VAPID_SUBJECT`.
@@ -86,15 +90,41 @@ SUPABASE_KEY: 'sb_publishable_xxxxxxxxxxxxxxxx',
 
 > ¿Por qué apagarlo? La función ya comprueba la sesión por su cuenta (y solo deja avisar a quien envió el mensaje). Con las claves nuevas de Supabase, la verificación automática puede rechazar a usuarios válidos; así lo recomienda la propia documentación de Supabase.
 
-## Paso 7 · Subir la app a Cloudflare Pages
+## Paso 7 · Publicar la app en Cloudflare Pages (conectada a GitHub)
+
+Así, cada cambio que guardes en la rama `main` de GitHub se publica solo.
 
 1. Entra a [dash.cloudflare.com](https://dash.cloudflare.com) (crea la cuenta si no tienes, es gratis).
-2. **Workers & Pages** → **Create application** → **Get started** (en la opción de Pages) → **Drag and drop your files**.
-3. **Project name:** `estrellita-y-jampier` (esa será la dirección: `estrellita-y-jampier.pages.dev`; si ya existe, Cloudflare le agrega unas letras).
-4. Arrastra **la carpeta `web`** (solo esa, no la carpeta completa del proyecto) → **Deploy site**.
-5. Abre la dirección que te da Cloudflare. Debe salir la pantalla para entrar con correo y contraseña (si salen botones de "demo", revisa el paso 4).
+2. **Workers & Pages** → **Create application** → **Pages** → conecta tu cuenta de GitHub y elige el repositorio `Messenger-love`.
+3. Llena la configuración así:
 
-**Para subir cambios en el futuro:** entra al proyecto en Cloudflare → **Create a new deployment** → vuelve a arrastrar la carpeta `web`. Antes de subir, cambia la versión en `web/sw.js` (`VERSION`) y en `web/js/config.js` (`VERSION`): así los celulares muestran "Hay una versión nueva de la app ✨".
+   | Campo | Valor |
+   |---|---|
+   | Project name | `messenger-estrellita-jampier-18` (será la dirección `nombre.pages.dev`) |
+   | Production branch | `main` |
+   | Framework preset | `None` |
+   | Build command | *(vacío)* |
+   | Build output directory | `web` |
+   | Root directory (advanced) | *(vacío)* |
+
+4. **Save and Deploy**, espera 1 minuto y abre la dirección `.pages.dev`.
+
+✅ Comprueba: debe salir el logo y la pantalla para entrar con correo y contraseña (o "Casi listo" si aún no hiciste el paso 4).
+
+> 🧭 **El archivo `wrangler.toml` ya se encarga de lo importante:** le dice a Cloudflare que publique solo la carpeta `web`. Por eso en el panel de Cloudflare el *Build output directory* aparece bloqueado: se cambia en ese archivo, no allá. Si algún día cambias el nombre del proyecto en Cloudflare, cambia también la línea `name` de `wrangler.toml`.
+>
+> Sin ese archivo, Cloudflare publicaría la carpeta completa del proyecto: la página saldría en blanco (error 404) y quedarían a la vista el README y los archivos SQL.
+
+**Para subir cambios en el futuro:** edita los archivos en GitHub (lápiz ✏️) o súbelos con **Add file → Upload files**, siempre en la rama `main`, y Cloudflare publica solo. Cuando cambies algo de la carpeta `web`, sube también la versión en `web/sw.js` (`VERSION`) y en `web/js/config.js` (`VERSION`): así los celulares muestran "Hay una versión nueva de la app ✨".
+
+<details>
+<summary>Otra forma: subir la carpeta a mano, sin GitHub</summary>
+
+1. **Workers & Pages** → **Create application** → **Pages** → **Drag and drop your files** (*Upload assets*).
+2. Ponle nombre al proyecto, arrastra **solo la carpeta `web`** → **Deploy site**.
+3. Para cambios: entra al proyecto → **Create a new deployment** → vuelve a arrastrar la carpeta `web`.
+
+</details>
 
 ## Paso 8 · El despertador (recomendado)
 
@@ -185,6 +215,12 @@ Cloudflare Pages: gratis, sin límite de visitas. Para ver el consumo: Supabase 
 
 ## Si algo falla
 
+**La dirección `.pages.dev` sale en blanco (o "404")** → revisa que `wrangler.toml` esté en la raíz del repositorio, que su línea `name` sea igual al nombre del proyecto en Cloudflare, y que los cambios estén en la rama `main` (la dirección principal solo publica `main`). Después de guardar, espera 1 o 2 minutos y recarga.
+
+**Sale la pantalla "Casi listo 💜"** → faltan la URL y la *publishable key* de Supabase en `web/js/config.js` (paso 4). Mientras tanto la app no muestra conversaciones de ejemplo; el botón **Ver una vista previa** abre una demo con mensajes de mentira que no salen del celular.
+
+**Sale el aviso rojo "Esa clave no va aquí"** → en `web/js/config.js` pegaste la *secret key* o la *service_role*. Pon la *publishable key* y, por seguridad, crea una secret nueva en Supabase (**Project Settings → API Keys**).
+
 **"Correo o contraseña incorrectos"** → revisa en **Authentication → Users** que la cuenta exista y esté confirmada. Si la contraseña se olvidó, usa `supabase/02_nueva_contrasena.sql` (cambia el correo y la contraseña, y **Run**).
 
 **"Tu cuenta entró, pero no tiene perfil"** → vuelve a ejecutar `supabase/01_estructura.sql` (es seguro repetirlo).
@@ -231,3 +267,6 @@ Cloudflare Pages: gratis, sin límite de visitas. Para ver el consumo: Supabase 
 - [Supabase · Pausa de proyectos gratis](https://supabase.com/docs/guides/platform/free-project-pausing)
 - [Supabase · Facturación y límites del plan gratis](https://supabase.com/docs/guides/platform/billing-on-supabase)
 - [Cloudflare Pages · Direct Upload](https://developers.cloudflare.com/pages/get-started/direct-upload/)
+- [Cloudflare Pages · Conectar con GitHub](https://developers.cloudflare.com/pages/get-started/git-integration/)
+- [Cloudflare Pages · Configuración de compilación](https://developers.cloudflare.com/pages/configuration/build-configuration/)
+- [Cloudflare Pages · Cabeceras (`_headers`)](https://developers.cloudflare.com/pages/configuration/headers/)

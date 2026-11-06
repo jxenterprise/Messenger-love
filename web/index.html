@@ -79,6 +79,42 @@
       </div>
     </section>
 
+    <!-- ================= Falta conectar Supabase =================
+         Solo se ve mientras web/js/config.js no tenga la URL y la clave
+         pública de Supabase. Cuando se pegan, desaparece para siempre. -->
+    <section class="pantalla pantalla-entrada patron" id="pantalla-conexion" hidden>
+      <div class="tarjeta-entrada">
+        <div class="marca">
+          <img class="logo" src="img/favicon.svg" alt="" width="84" height="84">
+          <p class="sobretitulo">Messenger</p>
+          <h1>Estrellita y Jampier <span class="corazon-titulo" aria-hidden="true">❤️</span></h1>
+          <p class="lema">Nuestro rincón privado</p>
+        </div>
+
+        <div class="caja-conexion" id="conexion-pendiente">
+          <p class="titulo-caja">Casi listo 💜</p>
+          <p>Estamos terminando de preparar nuestro chat. Muy pronto podrás entrar con tu correo y tu contraseña.</p>
+        </div>
+
+        <div class="caja-conexion peligro" id="conexion-peligro" role="alert" hidden>
+          <p class="titulo-caja">⚠️ Esa clave no va aquí</p>
+          <p>En <code>web/js/config.js</code> quedó la clave <strong>secreta</strong> de Supabase. Cámbiala por la <strong>Publishable key</strong> y, por seguridad, crea una clave secreta nueva en Supabase (Project Settings → API Keys).</p>
+        </div>
+
+        <details class="ayuda-conexion">
+          <summary>Para Jampier: ¿qué falta?</summary>
+          <ol class="pasos">
+            <li><span>Crear el proyecto en <strong>Supabase</strong> y correr <code>supabase/01_estructura.sql</code>.</span></li>
+            <li><span>Crear las 2 cuentas en <strong>Authentication → Users</strong>.</span></li>
+            <li><span>Pegar la <strong>Project URL</strong> y la <strong>Publishable key</strong> en <code>web/js/config.js</code>.</span></li>
+          </ol>
+          <p>Cada paso está explicado en el README del proyecto.</p>
+        </details>
+
+        <a class="boton secundario ancho" id="enlace-demo" href="?demo">Ver una vista previa ✨</a>
+      </div>
+    </section>
+
     <!-- ================= Chat ================= -->
     <section class="pantalla pantalla-chat" id="pantalla-chat" hidden>
       <header class="cabecera">
