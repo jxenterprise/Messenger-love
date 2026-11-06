@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Claves de notificaciones · E ❤ J</title>
+  <!--
+    Generador de claves VAPID — Messenger Estrellita y Jampier ❤️
+    ------------------------------------------------------------------
+    Ábrelo con doble clic (Chrome, Edge o Safari en el computador).
+    Las claves se crean aquí mismo con la criptografía del navegador:
+    no se envían a ningún lado y no necesitas internet.
+  -->
+  <style>
+    :root {
+      --fondo: #fbf3ee;
+      --fondo-hondo: #f4e4d9;
+      --superficie: #fffdfb;
+      --tinta: #2f2238;
+      --tinta-suave: #6b5974;
+      --borde: #e9d9cf;
+      --acento: #7952b8;
+      --sobre-acento: #ffffff;
+      --suave-acento: #ede3f9;
+      --peligro: #b23a52;
+      --suave-peligro: #fbe6ea;
+      --exito: #2f7d5b;
+      --codigo: #f6eee8;
+      color-scheme: light;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --fondo: #110d11; --fondo-hondo: #1b1519; --superficie: #1b1519; --tinta: #f6eaec;
+        --tinta-suave: #c4aab2; --borde: #3a2a31; --acento: #ef7d87; --sobre-acento: #2a0b10;
+        --suave-acento: #3a1d23; --peligro: #ff8f9c; --suave-peligro: #3d1a21; --exito: #7fd3a8;
+        --codigo: #241b20; color-scheme: dark;
+      }
+    }
+    :root[data-theme="dark"] {
+      --fondo: #110d11; --fondo-hondo: #1b1519; --superficie: #1b1519; --tinta: #f6eaec;
+      --tinta-suave: #c4aab2; --borde: #3a2a31; --acento: #ef7d87; --sobre-acento: #2a0b10;
+      --suave-acento: #3a1d23; --peligro: #ff8f9c; --suave-peligro: #3d1a21; --exito: #7fd3a8;
+      --codigo: #241b20; color-scheme: dark;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--fondo);
+      color: var(--tinta);
+      font: 16px/1.55 ui-rounded, "SF Pro Rounded", "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+      padding-block: 40px 64px;
+      padding-left: max(16px, env(safe-area-inset-left, 0px));
+      padding-right: max(16px, env(safe-area-inset-right, 0px));
+    }
+    main { max-width: 680px; margin: 0 auto; display: grid; gap: 20px; }
+    header { display: grid; gap: 6px; }
+    .marca { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--tinta-suave); font-weight: 700; }
+    h1 { margin: 0; font-size: clamp(26px, 5vw, 34px); line-height: 1.15; text-wrap: balance; }
+    p { margin: 0; }
+    .nota { color: var(--tinta-suave); max-width: 60ch; }
+
+    .tarjeta {
+      background: var(--superficie);
+      border: 1px solid var(--borde);
+      border-radius: 20px;
+      padding: 20px;
+      display: grid;
+      gap: 12px;
+      min-width: 0;
+    }
+    .tarjeta h2 { margin: 0; font-size: 18px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .etiqueta { font: 600 12px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace; padding: 6px 8px; border-radius: 8px; background: var(--suave-acento); color: var(--acento); }
+    .donde { color: var(--tinta-suave); font-size: 15px; }
+    .donde strong { color: var(--tinta); }
+    .tarjeta.privada { border-color: color-mix(in srgb, var(--peligro) 40%, var(--borde)); }
+    .tarjeta.privada .etiqueta { background: var(--suave-peligro); color: var(--peligro); }
+
+    .valor {
+      font: 14px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      background: var(--codigo);
+      border-radius: 12px;
+      padding: 12px 14px;
+      word-break: break-all;
+      user-select: all;
+      min-height: 48px;
+    }
+
+    .fila { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    button {
+      font: inherit; font-weight: 700; border: 0; cursor: pointer; border-radius: 999px;
+      padding: 12px 20px; min-height: 44px;
+      background: var(--acento); color: var(--sobre-acento);
+      transition: transform 0.12s ease, opacity 0.2s ease;
+    }
+    button:active { transform: scale(0.97); }
+    button.secundario { background: var(--suave-acento); color: var(--acento); padding: 10px 16px; }
+    button:focus-visible, input:focus-visible { outline: 3px solid color-mix(in srgb, var(--acento) 45%, transparent); outline-offset: 2px; }
+
+    label { font-weight: 700; font-size: 15px; }
+    input {
+      font: inherit; width: 100%; padding: 12px 14px; border-radius: 12px;
+      border: 1px solid var(--borde); background: var(--fondo); color: var(--tinta);
+    }
+    .aviso { padding: 14px 16px; border-radius: 14px; background: var(--suave-peligro); color: var(--tinta); font-size: 15px; }
+    .aviso strong { color: var(--peligro); }
+    .ok { color: var(--exito); font-weight: 700; font-size: 14px; min-height: 1.4em; }
+    ol { margin: 0; padding-left: 1.3em; display: grid; gap: 6px; }
+    code { font: 0.92em ui-monospace, "SF Mono", Menlo, Consolas, monospace; background: var(--codigo); padding: 2px 6px; border-radius: 6px; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <span class="marca">Messenger · E ❤ J</span>
+      <h1>Claves para las notificaciones</h1>
+      <p class="nota">Las notificaciones necesitan un par de claves (VAPID). Se crean aquí mismo, en tu computador: no se envían a ningún lado.</p>
+    </header>
+
+    <div class="aviso" id="sin-soporte" hidden>
+      <strong>Este navegador no puede crear las claves.</strong> Abre este archivo con Chrome, Edge o Safari en el computador.
+    </div>
+
+    <section class="tarjeta" id="paso-generar">
+      <h2>1 · Crear las claves</h2>
+      <p class="donde">Hazlo <strong>una sola vez</strong>. Si después creas otras, hay que cambiarlas en todos lados y volver a activar los avisos en cada celular.</p>
+      <div class="fila"><button type="button" id="generar">Generar claves</button></div>
+    </section>
+
+    <div id="resultado" hidden>
+      <div style="display:grid;gap:20px">
+        <section class="tarjeta">
+          <h2>Clave pública <span class="etiqueta">VAPID_PUBLIC_KEY</span></h2>
+          <p class="donde">Va en <strong>dos lugares</strong>: en Supabase (Edge Functions → Secrets) y en <code>web/js/config.js</code>.</p>
+          <div class="valor" id="publica"></div>
+          <div class="fila"><button type="button" class="secundario" data-copiar="publica">Copiar</button><span class="ok" aria-live="polite"></span></div>
+        </section>
+
+        <section class="tarjeta privada">
+          <h2>Clave privada <span class="etiqueta">VAPID_PRIVATE_KEY</span></h2>
+          <p class="donde"><strong>Solo en Supabase</strong> (Edge Functions → Secrets). Nunca en la web, nunca por chat, nunca en una foto.</p>
+          <div class="valor" id="privada"></div>
+          <div class="fila"><button type="button" class="secundario" data-copiar="privada">Copiar</button><span class="ok" aria-live="polite"></span></div>
+        </section>
+
+        <section class="tarjeta">
+          <h2>Tu correo <span class="etiqueta">VAPID_SUBJECT</span></h2>
+          <p class="donde">Google y Apple lo piden para saber quién manda los avisos. Usa un correo tuyo real.</p>
+          <label for="correo">Correo</label>
+          <input id="correo" type="email" autocomplete="email" placeholder="tucorreo@gmail.com">
+          <div class="valor" id="sujeto">mailto:</div>
+          <div class="fila"><button type="button" class="secundario" data-copiar="sujeto">Copiar</button><span class="ok" aria-live="polite"></span></div>
+        </section>
+
+        <section class="tarjeta">
+          <h2>2 · Pegar en Supabase</h2>
+          <ol>
+            <li>Supabase → <strong>Edge Functions</strong> → <strong>Secrets</strong>.</li>
+            <li>Toca el botón de abajo y pega todo en el primer campo <em>Key</em>: Supabase separa las 3 solas.</li>
+            <li>Si no las separa, agrégalas una por una: en <em>Key</em> el nombre (ej. <code>VAPID_PUBLIC_KEY</code>) y en <em>Value</em> la clave.</li>
+            <li>Guarda con <strong>Save</strong>.</li>
+          </ol>
+          <div class="valor" id="bloque-supabase"></div>
+          <div class="fila"><button type="button" data-copiar="bloque-supabase">Copiar las 3 para Supabase</button><span class="ok" aria-live="polite"></span></div>
+        </section>
+
+        <section class="tarjeta">
+          <h2>3 · Pegar en la web</h2>
+          <p class="donde">Abre <code>web/js/config.js</code> y reemplaza la línea de <code>VAPID_PUBLIC_KEY</code> por esta:</p>
+          <div class="valor" id="linea-config"></div>
+          <div class="fila"><button type="button" class="secundario" data-copiar="linea-config">Copiar línea</button><span class="ok" aria-live="polite"></span></div>
+        </section>
+
+        <p class="nota">Consejo: guarda las 3 en un lugar seguro (por ejemplo, el administrador de contraseñas de tu celular).</p>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    'use strict';
+    const $ = (id) => document.getElementById(id);
+    const aBase64Url = (bytes) =>
+      btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+    let claves = null;
+
+    if (!window.isSecureContext || !window.crypto?.subtle) {
+      $('sin-soporte').hidden = false;
+      $('generar').disabled = true;
+    }
+
+    // Crea el par ECDSA P-256 (el que exige el estándar VAPID) y lo comprueba firmando
+    async function generar() {
+      const par = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+      const publica = aBase64Url(await crypto.subtle.exportKey('raw', par.publicKey)); // 65 bytes
+      const privada = (await crypto.subtle.exportKey('jwk', par.privateKey)).d; // 32 bytes
+      const prueba = new TextEncoder().encode('E ❤ J');
+      const firma = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, par.privateKey, prueba);
+      const valida = await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, par.publicKey, firma, prueba);
+      if (!valida) throw new Error('La comprobación de las claves falló');
+      return { publica, privada };
+    }
+
+    function pintar() {
+      const correo = $('correo').value.trim();
+      const sujeto = `mailto:${correo || 'tucorreo@gmail.com'}`;
+      $('sujeto').textContent = sujeto;
+      $('bloque-supabase').textContent =
+        `VAPID_PUBLIC_KEY=${claves.publica}\nVAPID_PRIVATE_KEY=${claves.privada}\nVAPID_SUBJECT=${sujeto}`;
+      $('bloque-supabase').style.whiteSpace = 'pre-wrap';
+      $('linea-config').textContent = `VAPID_PUBLIC_KEY: '${claves.publica}',`;
+    }
+
+    $('generar').addEventListener('click', async () => {
+      if (claves && !confirmarNuevas()) return;
+      try {
+        claves = await generar();
+        $('publica').textContent = claves.publica;
+        $('privada').textContent = claves.privada;
+        pintar();
+        $('resultado').hidden = false;
+        $('generar').textContent = 'Generar otras';
+        $('correo').focus();
+      } catch (error) {
+        alert('No se pudieron crear las claves: ' + error.message);
+      }
+    });
+
+    // Si ya había claves en pantalla, se pide confirmación antes de reemplazarlas
+    let confirmando = false;
+    function confirmarNuevas() {
+      if (confirmando) {
+        confirmando = false;
+        return true;
+      }
+      confirmando = true;
+      $('generar').textContent = '¿Seguro? Toca otra vez para reemplazarlas';
+      setTimeout(() => {
+        confirmando = false;
+        if (claves) $('generar').textContent = 'Generar otras';
+      }, 4000);
+      return false;
+    }
+
+    $('correo').addEventListener('input', () => claves && pintar());
+
+    // Copiar (con plan B si el navegador no deja usar el portapapeles)
+    document.addEventListener('click', async (evento) => {
+      const boton = evento.target.closest('[data-copiar]');
+      if (!boton) return;
+      const texto = $(boton.dataset.copiar).textContent;
+      const estado = boton.parentElement.querySelector('.ok');
+      try {
+        await navigator.clipboard.writeText(texto);
+      } catch {
+        const area = document.createElement('textarea');
+        area.value = texto;
+        document.body.append(area);
+        area.select();
+        document.execCommand('copy');
+        area.remove();
+      }
+      estado.textContent = '¡Copiado! ✓';
+      setTimeout(() => (estado.textContent = ''), 2200);
+    });
+  </script>
+</body>
+</html>

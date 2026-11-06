@@ -1,0 +1,3 @@
+# Chat privado: ningún buscador debe indexarlo
+User-agent: *
+Disallow: /

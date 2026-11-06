@@ -1,0 +1,1066 @@
+/* ==========================================================================
+   app.js — Arranque y flujo general de Messenger Estrellita y Jampier ❤️
+   --------------------------------------------------------------------------
+   Pantallas: carga → entrada (login) → PIN → chat.
+   Además: temas claro/oscuro, ajustes, notificaciones push, instalación
+   como app, bloqueo automático al salir y "latido" (en línea / últ. vez).
+   ========================================================================== */
+import { CONFIG, MODO_DEMO } from './config.js';
+import { icono, pintarIconos } from './iconos.js';
+import { kv, local } from './almacen.js';
+import { borrarPin, guardarPin, tienePin, verificarPin } from './candado.js';
+import { comprimirImagen } from './media.js';
+import { datosSuscripcion, desuscribir, estadoPermiso, soportaPush, suscribir } from './notificaciones.js';
+import { abrirCapa, aviso, cerrarTodasLasCapas, confirmar, crearElemento, dialogo, hoja, prepararSonido } from './interfaz.js';
+import { $, escaparHtml, esErrorDeRed, plataforma, vibrar } from './utilidades.js';
+import * as chat from './chat.js';
+import { BackendDemo } from './backend-demo.js';
+import { BackendSupabase } from './backend-supabase.js';
+
+const VISTA_PREVIA = window.__VISTA_PREVIA__ === true;
+const temaDelAnfitrion = document.documentElement.getAttribute('data-theme');
+
+/* ---------- Estado general ---------- */
+const app = {
+  pantalla: 'carga',
+  bloqueado: false,
+  ocultoDesde: null,
+  panelesAbiertos: 0,
+  registroSW: null,
+  promptInstalacion: null,
+  intervaloLatido: null,
+  chatAbierto: false,
+  urlFondo: null,
+};
+
+let backend = null;
+
+/** Contexto compartido con chat.js */
+const ctx = {
+  backend: null,
+  yo: null,
+  correo: '',
+  perfiles: new Map(),
+  modoDemo: MODO_DEMO,
+  esVistaPrevia: VISTA_PREVIA,
+  pareja: () => [...ctx.perfiles.values()].find((p) => p.id !== ctx.yo) || null,
+  miPerfil: () => ctx.perfiles.get(ctx.yo) || null,
+  puedeVer: () => document.visibilityState === 'visible' && !app.bloqueado && app.pantalla === 'chat',
+  puedeLeer: () => ctx.puedeVer() && app.panelesAbiertos === 0,
+  ajustes: () => ({ sonido: local.leer('sonido', true) }),
+  tienePin: () => !!ctx.yo && tienePin(ctx.yo),
+  puedeInstalar: () => !VISTA_PREVIA && !plataforma().standalone,
+  abrirAjustes: () => abrirAjustes(),
+  bloquearAhora: () => bloquear(),
+  instalar: () => instalar(),
+  borrarInsignia: () => navigator.clearAppBadge?.().catch(() => {}),
+  alAbrirPanel: () => {
+    app.panelesAbiertos += 1;
+  },
+  alCerrarPanel: () => {
+    app.panelesAbiertos = Math.max(0, app.panelesAbiertos - 1);
+    chat.marcarLeidosSiCorresponde();
+  },
+};
+
+/* ==========================================================================
+   Pantallas
+   ========================================================================== */
+function mostrarPantalla(nombre) {
+  app.pantalla = nombre;
+  $('#pantalla-carga').hidden = nombre !== 'carga';
+  $('#pantalla-entrada').hidden = nombre !== 'entrada';
+  $('#pantalla-pin').hidden = nombre !== 'pin';
+  $('#pantalla-chat').hidden = !(nombre === 'chat' || (nombre === 'pin' && app.chatAbierto));
+  $('#pantalla-chat').inert = nombre !== 'chat';
+}
+
+/* ==========================================================================
+   Tema claro / oscuro
+   ========================================================================== */
+function temaOscuroActivo() {
+  const a = document.documentElement.getAttribute('data-theme');
+  if (a === 'dark') return true;
+  if (a === 'light') return false;
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+}
+
+function actualizarColorBarra() {
+  const color = getComputedStyle(document.documentElement).getPropertyValue('--fondo').trim() || '#FBF3EE';
+  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.remove());
+  const meta = document.createElement('meta');
+  meta.name = 'theme-color';
+  meta.content = color;
+  document.head.appendChild(meta);
+}
+
+function pintarBotonTema() {
+  const boton = $('#boton-tema');
+  if (!boton) return;
+  const oscuro = temaOscuroActivo();
+  boton.innerHTML = icono(oscuro ? 'sol' : 'luna');
+  boton.setAttribute('aria-label', oscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro');
+}
+
+function aplicarTema(preferencia) {
+  const raiz = document.documentElement;
+  if (preferencia === 'claro') raiz.setAttribute('data-theme', 'light');
+  else if (preferencia === 'oscuro') raiz.setAttribute('data-theme', 'dark');
+  else if (VISTA_PREVIA && temaDelAnfitrion) raiz.setAttribute('data-theme', temaDelAnfitrion);
+  else raiz.removeAttribute('data-theme');
+  local.guardar('tema', preferencia);
+  actualizarColorBarra();
+  pintarBotonTema();
+}
+
+function alternarTema() {
+  aplicarTema(temaOscuroActivo() ? 'claro' : 'oscuro');
+}
+
+window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change', () => {
+  if (local.leer('tema', 'auto') === 'auto') {
+    actualizarColorBarra();
+    pintarBotonTema();
+  }
+});
+
+/* ---------- Fondo del chat ---------- */
+async function aplicarFondo(tipo) {
+  const zona = $('#zona-chat');
+  if (tipo === 'foto') {
+    const datos = await kv.leer('fondo-foto');
+    if (datos?.buffer) {
+      if (app.urlFondo) URL.revokeObjectURL(app.urlFondo);
+      app.urlFondo = URL.createObjectURL(new Blob([datos.buffer], { type: datos.tipo }));
+      zona.style.setProperty('--fondo-foto', `url("${app.urlFondo}")`);
+    } else tipo = 'corazones';
+  }
+  zona.dataset.fondo = tipo;
+  local.guardar('fondo', tipo);
+}
+
+/* ==========================================================================
+   Altura real de la pantalla (para que el teclado del iPhone no tape la barra)
+   ========================================================================== */
+function configurarAlturaVisible() {
+  const vv = window.visualViewport;
+  if (VISTA_PREVIA || !vv) return;
+  const ajustar = () => {
+    if (Math.abs((vv.scale || 1) - 1) > 0.01) return;
+    document.documentElement.style.setProperty('--alto-app', `${Math.round(vv.height)}px`);
+    if (window.scrollY !== 0) window.scrollTo(0, 0);
+  };
+  vv.addEventListener('resize', ajustar);
+  vv.addEventListener('scroll', ajustar);
+  ajustar();
+}
+
+/* ==========================================================================
+   Service worker (funciona sin señal + notificaciones + actualizaciones)
+   ========================================================================== */
+async function registrarServiceWorker() {
+  if (VISTA_PREVIA || !('serviceWorker' in navigator)) return;
+  const seguro = location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(location.hostname);
+  if (!seguro) return;
+  try {
+    const teniaControlador = !!navigator.serviceWorker.controller;
+    const registro = await navigator.serviceWorker.register('sw.js');
+    app.registroSW = registro;
+    const vigilar = (sw) => {
+      sw?.addEventListener('statechange', () => {
+        if (sw.state === 'installed' && navigator.serviceWorker.controller) ofrecerActualizacion(sw);
+      });
+    };
+    if (registro.waiting && navigator.serviceWorker.controller) ofrecerActualizacion(registro.waiting);
+    registro.addEventListener('updatefound', () => vigilar(registro.installing));
+    let recargando = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!teniaControlador || recargando) return;
+      recargando = true;
+      location.reload();
+    });
+    navigator.serviceWorker.addEventListener('message', (e) => {
+      if (e.data?.tipo === 'abrir-chat' && ctx.yo && !app.bloqueado) mostrarPantalla('chat');
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') registro.update().catch(() => {});
+    });
+    asegurarSuscripcion();
+  } catch (error) {
+    console.warn('No se pudo registrar el service worker:', error);
+  }
+}
+
+function ofrecerActualizacion(sw) {
+  aviso('Hay una versión nueva de la app ✨', {
+    accion: 'Actualizar',
+    alAccionar: () => sw.postMessage({ tipo: 'ACTUALIZAR' }),
+    duracion: 0,
+  });
+}
+
+/* ==========================================================================
+   Notificaciones push
+   ========================================================================== */
+const vapidListo = () => !!CONFIG.VAPID_PUBLIC_KEY;
+
+function notificacionesActivas() {
+  return !MODO_DEMO && soportaPush() && estadoPermiso() === 'granted' && !!local.leer('push-endpoint');
+}
+
+/** Renueva la suscripción en silencio si el permiso ya estaba dado. */
+async function asegurarSuscripcion() {
+  if (MODO_DEMO || !ctx.yo || !vapidListo() || !soportaPush() || estadoPermiso() !== 'granted' || !app.registroSW) return;
+  try {
+    const registro = await navigator.serviceWorker.ready;
+    const suscripcion = await suscribir(registro, CONFIG.VAPID_PUBLIC_KEY);
+    await backend.guardarSuscripcion(datosSuscripcion(suscripcion));
+    local.guardar('push-endpoint', suscripcion.endpoint);
+  } catch (error) {
+    console.warn('No se pudo renovar la suscripción push:', error);
+  }
+}
+
+/** Se llama desde un toque: pide permiso y suscribe este dispositivo. */
+async function activarNotificaciones() {
+  if (MODO_DEMO) {
+    aviso('En la vista previa no hay notificaciones. En la app conectada se activan aquí.');
+    return false;
+  }
+  if (!vapidListo()) {
+    aviso('Falta la clave VAPID en js/config.js. Mira el paso de notificaciones en la guía.', { duracion: 5000 });
+    return false;
+  }
+  const p = plataforma();
+  if (p.ios && !p.standalone) {
+    abrirGuiaInstalacion();
+    return false;
+  }
+  if (!soportaPush() || !app.registroSW) {
+    aviso('Este navegador no permite notificaciones.');
+    return false;
+  }
+  let permiso;
+  try {
+    permiso = await Notification.requestPermission();
+  } catch {
+    permiso = Notification.permission;
+  }
+  if (permiso !== 'granted') {
+    aviso(
+      permiso === 'denied'
+        ? 'Las notificaciones están bloqueadas. Actívalas en los ajustes del celular para esta app.'
+        : 'No se activaron las notificaciones.',
+      { duracion: 5000 },
+    );
+    return false;
+  }
+  try {
+    const registro = await navigator.serviceWorker.ready;
+    const suscripcion = await suscribir(registro, CONFIG.VAPID_PUBLIC_KEY);
+    await backend.guardarSuscripcion(datosSuscripcion(suscripcion));
+    local.guardar('push-endpoint', suscripcion.endpoint);
+    aviso('¡Listo! Te avisaré cuando te escriba 💌');
+    return true;
+  } catch (error) {
+    console.error('Error al activar notificaciones:', error);
+    aviso('No se pudieron activar. Revisa tu conexión e inténtalo de nuevo.');
+    return false;
+  }
+}
+
+async function desactivarNotificaciones() {
+  try {
+    if (app.registroSW) {
+      const registro = await navigator.serviceWorker.ready;
+      const endpoint = await desuscribir(registro);
+      await backend.borrarSuscripcion(endpoint || local.leer('push-endpoint'));
+    }
+  } catch {
+    /* nada */
+  }
+  local.borrar('push-endpoint');
+}
+
+function textoEstadoNotificaciones() {
+  const p = plataforma();
+  if (MODO_DEMO) return 'Se activan en la app ya conectada.';
+  if (!vapidListo()) return 'Falta configurar la clave VAPID.';
+  if (p.ios && !p.standalone) return 'En iPhone, primero instala la app.';
+  if (!soportaPush()) return 'Este navegador no las permite.';
+  if (estadoPermiso() === 'denied') return 'Bloqueadas en los ajustes del celular.';
+  return notificacionesActivas() ? 'Activadas.' : 'Apagadas.';
+}
+
+function posponerTarjeta() {
+  local.guardar('tarjeta-notif-hasta', Date.now() + 7 * 86400000);
+}
+
+function mostrarTarjetaNotificaciones() {
+  if (local.leer('tarjeta-notif-hasta', 0) > Date.now()) return chat.mostrarTarjeta(null);
+  const p = plataforma();
+  if (!MODO_DEMO && p.ios && !p.standalone) {
+    return chat.mostrarTarjeta({
+      icono: 'celular',
+      titulo: 'Instala la app en tu iPhone',
+      texto: 'Así te llegan las notificaciones.',
+      boton: 'Cómo',
+      alAceptar: abrirGuiaInstalacion,
+      alCerrar: posponerTarjeta,
+    });
+  }
+  if (MODO_DEMO || (soportaPush() && estadoPermiso() === 'default') || (estadoPermiso() === 'granted' && !local.leer('push-endpoint'))) {
+    return chat.mostrarTarjeta({
+      icono: 'campana',
+      titulo: 'Activa las notificaciones',
+      texto: 'Para saber al instante cuando te escriba.',
+      boton: 'Activar',
+      alAceptar: async () => {
+        if (await activarNotificaciones()) chat.mostrarTarjeta(null);
+      },
+      alCerrar: posponerTarjeta,
+    });
+  }
+  chat.mostrarTarjeta(null);
+}
+
+/* ==========================================================================
+   Instalación como app
+   ========================================================================== */
+function escucharInstalacion() {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    app.promptInstalacion = e;
+  });
+  window.addEventListener('appinstalled', () => {
+    app.promptInstalacion = null;
+    aviso('¡App instalada! Ábrela desde tu pantalla de inicio 💜');
+  });
+}
+
+async function instalar() {
+  if (app.promptInstalacion) {
+    const solicitud = app.promptInstalacion;
+    app.promptInstalacion = null;
+    solicitud.prompt();
+    await solicitud.userChoice.catch(() => null);
+    return;
+  }
+  abrirGuiaInstalacion();
+}
+
+function abrirGuiaInstalacion() {
+  const p = plataforma();
+  const pasosIphone = `
+    <ol class="pasos">
+      <li><span>Abre esta página en <strong>Safari</strong>.</span></li>
+      <li><span>Toca <strong>Compartir</strong> ${icono('compartir')} (en iOS 26 está dentro del botón •••).</span></li>
+      <li><span>Elige <strong>Agregar a pantalla de inicio</strong> ${icono('agregar')} y deja activado “Abrir como app web”.</span></li>
+      <li><span>Abre la app desde su ícono y activa las notificaciones.</span></li>
+    </ol>`;
+  const pasosAndroid = `
+    <ol class="pasos">
+      <li><span>Abre esta página en <strong>Chrome</strong>.</span></li>
+      <li><span>Toca el menú ⋮ y elige <strong>Instalar app</strong> o “Agregar a la pantalla principal”.</span></li>
+      <li><span>Abre la app desde su ícono y activa las notificaciones.</span></li>
+    </ol>`;
+  const pasosPc = `
+    <ol class="pasos">
+      <li><span>En Chrome o Edge, busca el ícono de instalar ${icono('descargar')} en la barra de direcciones.</span></li>
+      <li><span>Haz clic en <strong>Instalar</strong>: queda como una app más del computador.</span></li>
+    </ol>`;
+  hoja(
+    `<h2>Instalar Messenger E ❤ J</h2>${p.ios ? pasosIphone : p.android ? pasosAndroid : pasosPc}<button type="button" class="boton ancho" data-cerrar>Entendido</button>`,
+    'Instalar la app',
+  );
+}
+
+/* ==========================================================================
+   Latido: "en línea" y "últ. vez"
+   ========================================================================== */
+function iniciarLatido() {
+  detenerLatido();
+  if (!ctx.yo) return;
+  backend.latido(true);
+  app.intervaloLatido = setInterval(() => {
+    if (document.visibilityState === 'visible' && !app.bloqueado) backend.latido(true);
+  }, 15000);
+}
+
+function detenerLatido() {
+  clearInterval(app.intervaloLatido);
+  app.intervaloLatido = null;
+}
+
+/* ==========================================================================
+   Entrada (login)
+   ========================================================================== */
+function errorEntrada(texto) {
+  $('#error-entrada').textContent = texto;
+}
+
+function mostrarEntrada() {
+  errorEntrada('');
+  $('#caja-demo').hidden = !MODO_DEMO;
+  $('#formulario-entrada').hidden = MODO_DEMO;
+  mostrarPantalla('entrada');
+}
+
+function enlazarEntrada() {
+  $('#formulario-entrada').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const correo = $('#correo').value.trim();
+    const clave = $('#clave').value;
+    if (!correo || !clave) return errorEntrada('Escribe tu correo y tu contraseña.');
+    const boton = $('#boton-entrar');
+    boton.disabled = true;
+    boton.textContent = 'Entrando…';
+    errorEntrada('');
+    try {
+      const usuario = await backend.entrar(correo, clave);
+      $('#clave').value = '';
+      await entrarConUsuario(usuario, { recienEntrado: true });
+    } catch (error) {
+      errorEntrada(error?.message || 'No se pudo entrar.');
+    } finally {
+      boton.disabled = false;
+      boton.textContent = 'Entrar';
+    }
+  });
+
+  $('#caja-demo').addEventListener('click', async (e) => {
+    const boton = e.target.closest('[data-demo]');
+    if (!boton) return;
+    boton.disabled = true;
+    const usuario = await backend.entrarComo(boton.dataset.demo);
+    boton.disabled = false;
+    await entrarConUsuario(usuario, { recienEntrado: true });
+  });
+
+  $('#ver-clave').addEventListener('click', () => {
+    const campo = $('#clave');
+    const ver = campo.type === 'password';
+    campo.type = ver ? 'text' : 'password';
+    const boton = $('#ver-clave');
+    boton.innerHTML = icono(ver ? 'ojoOff' : 'ojo');
+    boton.setAttribute('aria-label', ver ? 'Ocultar contraseña' : 'Mostrar contraseña');
+  });
+}
+
+async function entrarConUsuario(usuario, { recienEntrado = false } = {}) {
+  ctx.yo = usuario.id;
+  ctx.correo = usuario.email || '';
+
+  const guardados = await kv.leer(`perfiles:${ctx.yo}`);
+  if (guardados?.length) for (const p of guardados) ctx.perfiles.set(p.id, p);
+  let sinRed = false;
+  try {
+    const lista = await backend.cargarPerfiles();
+    ctx.perfiles.clear();
+    for (const p of lista) ctx.perfiles.set(p.id, p);
+    kv.guardar(`perfiles:${ctx.yo}`, lista);
+  } catch (error) {
+    sinRed = esErrorDeRed(error);
+    if (!sinRed) console.warn('No se pudieron cargar los perfiles:', error);
+  }
+
+  if (!ctx.perfiles.has(ctx.yo) && !sinRed) {
+    errorEntrada(
+      'Tu cuenta entró, pero no tiene perfil en la base de datos. Ejecuta el archivo supabase/01_estructura.sql (paso 2 de la guía) y vuelve a entrar.',
+    );
+    await backend.salir();
+    ctx.yo = null;
+    mostrarEntrada();
+    return;
+  }
+
+  app.chatAbierto = true;
+  chat.abrirChat();
+  aplicarFondo(local.leer('fondo', 'corazones'));
+
+  if (!tienePin(ctx.yo)) mostrarPin('nombre');
+  else if (recienEntrado) desbloquear();
+  else mostrarPin('desbloquear');
+}
+
+/** Sale sin preguntar (PIN olvidado o demasiados intentos). */
+async function forzarSalida() {
+  const yo = ctx.yo;
+  cerrarTodasLasCapas();
+  chat.cerrarChat();
+  app.chatAbierto = false;
+  detenerLatido();
+  await desactivarNotificaciones();
+  await backend.salir();
+  if (yo) {
+    borrarPin(yo);
+    await Promise.all([kv.borrar(`cache:${yo}`), kv.borrar(`perfiles:${yo}`)]);
+    local.borrar(`borrador:${yo}`);
+  }
+  ctx.yo = null;
+  ctx.perfiles.clear();
+  app.bloqueado = false;
+  mostrarEntrada();
+}
+
+async function cerrarSesion() {
+  const si = await confirmar({
+    titulo: '¿Cerrar sesión?',
+    texto: 'Se borran de este dispositivo los mensajes guardados y el PIN. En la nube todo sigue a salvo.',
+    aceptar: 'Cerrar sesión',
+    peligro: true,
+  });
+  if (!si) return;
+  const yo = ctx.yo;
+  await forzarSalida();
+  if (yo) {
+    await kv.borrar(`bandeja:${yo}`);
+    local.borrar(`push-pendientes:${yo}`);
+  }
+}
+
+/* ==========================================================================
+   PIN
+   ========================================================================== */
+const pin = { modo: null, valor: '', primero: '', ocupado: false, cambiando: false };
+
+const TEXTOS_PIN = {
+  nombre: ['Hola 👋', '¿Cómo quieres que te vea tu pareja en el chat?'],
+  crear: ['Crea tu PIN', 'Cuatro números para abrir el chat en este dispositivo.'],
+  confirmar: ['Repite tu PIN', 'Para estar seguros de que lo recuerdas.'],
+  actual: ['Escribe tu PIN actual', 'Para poder cambiarlo.'],
+  desbloquear: ['', 'Escribe tu PIN para abrir el chat.'],
+};
+
+function pintarPuntos() {
+  [...$('#puntos-pin').children].forEach((punto, i) => punto.classList.toggle('lleno', i < pin.valor.length));
+  $('#estado-pin-lector').textContent = `${pin.valor.length} de 4 números`;
+}
+
+function mostrarPin(modo) {
+  app.bloqueado = true;
+  pin.modo = modo;
+  pin.valor = '';
+  const yo = ctx.miPerfil();
+  chat.pintarAvatar($('#avatar-pin'), yo);
+  const [titulo, texto] = TEXTOS_PIN[modo];
+  $('#titulo-pin').textContent = modo === 'desbloquear' ? `Hola, ${yo?.nombre || 'amor'}` : titulo;
+  $('#texto-pin').textContent = texto;
+  const esNombre = modo === 'nombre';
+  $('#paso-nombre').hidden = !esNombre;
+  $('#puntos-pin').hidden = esNombre;
+  $('#teclado').hidden = esNombre;
+  $('#error-pin').textContent = '';
+  const enlace = $('#olvide-pin');
+  enlace.hidden = esNombre || (modo === 'crear' && !pin.cambiando) || (modo === 'confirmar' && !pin.cambiando);
+  enlace.textContent = pin.cambiando ? 'Cancelar' : '¿Olvidaste tu PIN?';
+  if (esNombre) $('#nombre-propio').value = yo?.nombre || '';
+  pintarPuntos();
+  mostrarPantalla('pin');
+  detenerLatido();
+  backend.presencia(false);
+}
+
+function errorPin(texto) {
+  pin.valor = '';
+  const puntos = $('#puntos-pin');
+  puntos.classList.remove('error');
+  void puntos.offsetWidth;
+  puntos.classList.add('error');
+  vibrar([40, 30, 40]);
+  pintarPuntos();
+  $('#error-pin').textContent = texto;
+  setTimeout(() => puntos.classList.remove('error'), 500);
+}
+
+function teclaPin(digito) {
+  if (pin.ocupado || pin.valor.length >= 4 || pin.modo === 'nombre') return;
+  pin.valor += digito;
+  $('#error-pin').textContent = '';
+  pintarPuntos();
+  vibrar(6);
+  if (pin.valor.length === 4) setTimeout(completarPin, 130);
+}
+
+function borrarDigito() {
+  if (pin.ocupado) return;
+  pin.valor = pin.valor.slice(0, -1);
+  pintarPuntos();
+}
+
+async function completarPin() {
+  const valor = pin.valor;
+  pin.ocupado = true;
+  try {
+    if (pin.modo === 'crear') {
+      pin.primero = valor;
+      mostrarPin('confirmar');
+    } else if (pin.modo === 'confirmar') {
+      if (valor === pin.primero) {
+        await guardarPin(ctx.yo, valor);
+        pin.primero = '';
+        const cambiando = pin.cambiando;
+        pin.cambiando = false;
+        aviso(cambiando ? 'PIN cambiado 🔒' : 'PIN creado 🔒 Ya puedes chatear');
+        desbloquear();
+      } else {
+        pin.primero = '';
+        errorPin('No coinciden. Vamos otra vez.');
+        setTimeout(() => mostrarPin('crear'), 900);
+      }
+    } else {
+      const r = await verificarPin(ctx.yo, valor);
+      if (r.ok) {
+        if (pin.modo === 'actual') mostrarPin('crear');
+        else desbloquear();
+      } else if (r.bloquear) {
+        errorPin('Demasiados intentos. Por seguridad, entra otra vez con tu contraseña.');
+        setTimeout(forzarSalida, 1600);
+      } else if (r.esperar) {
+        errorPin(`Demasiados intentos. Espera ${r.esperar} segundos.`);
+      } else {
+        errorPin(r.restantes <= 5 ? `PIN incorrecto. Te quedan ${r.restantes} intentos.` : 'PIN incorrecto.');
+      }
+    }
+  } finally {
+    pin.ocupado = false;
+  }
+}
+
+function desbloquear() {
+  app.bloqueado = false;
+  pin.cambiando = false;
+  mostrarPantalla('chat');
+  iniciarLatido();
+  backend.presencia(true);
+  chat.alDesbloquear();
+  mostrarTarjetaNotificaciones();
+  revisarAccionInicial();
+}
+
+/** Atajo del ícono de la app (Android): mantener presionado → "Enviar un Te extraño". */
+function revisarAccionInicial() {
+  if (app.accionRevisada) return;
+  app.accionRevisada = true;
+  const parametros = new URLSearchParams(location.search);
+  if (parametros.get('accion') !== 'te-extrano') return;
+  try {
+    history.replaceState(history.state, '', location.pathname);
+  } catch {
+    /* nada */
+  }
+  setTimeout(() => chat.enviarTeExtrano(), 500);
+}
+
+function bloquear() {
+  if (!ctx.yo || !tienePin(ctx.yo)) return;
+  cerrarTodasLasCapas();
+  mostrarPin('desbloquear');
+}
+
+function retardoBloqueoMs() {
+  return Number(local.leer('bloqueo-seg', 60)) * 1000;
+}
+
+function enlazarPin() {
+  const teclado = $('#teclado');
+  teclado.innerHTML =
+    [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<button type="button" class="tecla" data-digito="${n}">${n}</button>`).join('') +
+    `<span class="tecla vacia" aria-hidden="true"></span><button type="button" class="tecla" data-digito="0">0</button>` +
+    `<button type="button" class="tecla especial" data-borrar aria-label="Borrar">${icono('borrarTecla')}</button>`;
+  teclado.addEventListener('click', (e) => {
+    const d = e.target.closest('[data-digito]');
+    if (d) return teclaPin(d.dataset.digito);
+    if (e.target.closest('[data-borrar]')) borrarDigito();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (app.pantalla !== 'pin' || pin.modo === 'nombre') return;
+    if (/^[0-9]$/.test(e.key)) teclaPin(e.key);
+    else if (e.key === 'Backspace') borrarDigito();
+  });
+
+  $('#continuar-nombre').addEventListener('click', async () => {
+    const nombre = $('#nombre-propio').value.trim().replace(/\s+/g, ' ').slice(0, 40);
+    if (!nombre) {
+      $('#error-pin').textContent = 'Escribe tu nombre o un apodo.';
+      return;
+    }
+    const yo = ctx.miPerfil();
+    if (yo && yo.nombre !== nombre) {
+      try {
+        await backend.actualizarMiPerfil({ nombre });
+        yo.nombre = nombre;
+      } catch {
+        aviso('No se pudo guardar el nombre ahora. Lo puedes cambiar luego en Ajustes.');
+      }
+    }
+    chat.actualizarCabecera();
+    mostrarPin('crear');
+  });
+  $('#nombre-propio').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') $('#continuar-nombre').click();
+  });
+
+  $('#olvide-pin').addEventListener('click', async () => {
+    if (pin.cambiando) {
+      pin.cambiando = false;
+      pin.primero = '';
+      desbloquear();
+      return;
+    }
+    const si = await confirmar({
+      titulo: '¿Olvidaste tu PIN?',
+      texto: 'Para crear uno nuevo, entra otra vez con tu correo y contraseña.',
+      aceptar: 'Entrar de nuevo',
+    });
+    if (si) forzarSalida();
+  });
+}
+
+/* ==========================================================================
+   Ajustes
+   ========================================================================== */
+const segmento = (valor, ic, texto, actual) =>
+  `<button type="button" data-valor="${valor}" aria-pressed="${String(valor) === String(actual)}">${icono(ic)}${texto}</button>`;
+
+function abrirAjustes() {
+  const yo = ctx.miPerfil();
+  const pareja = ctx.pareja();
+  const tema = local.leer('tema', 'auto');
+  const fondo = local.leer('fondo', 'corazones');
+  const bloqueo = String(local.leer('bloqueo-seg', 60));
+  const sonido = local.leer('sonido', true);
+  const mostrarInstalar = !VISTA_PREVIA && !plataforma().standalone;
+
+  const panel = crearElemento(`
+    <section class="panel" role="dialog" aria-modal="true" aria-labelledby="titulo-ajustes">
+      <header class="cabecera">
+        <button type="button" class="boton-icono" data-cerrar aria-label="Volver">${icono('atras')}</button>
+        <h2 id="titulo-ajustes">Ajustes</h2>
+      </header>
+      <div class="cuerpo">
+        <section class="seccion-ajustes">
+          <h3>Tu perfil</h3>
+          <div class="grupo-ajustes">
+            <div class="perfil-ajustes">
+              <button type="button" class="cambiar-foto" data-accion="foto" aria-label="Cambiar tu foto de perfil">
+                <span class="avatar" id="avatar-ajustes"></span><span class="lapiz-foto">${icono('lapiz')}</span>
+              </button>
+              <div class="campo-texto">
+                <label for="nombre-ajustes" class="solo-lector">Tu nombre</label>
+                <input id="nombre-ajustes" maxlength="40" autocomplete="nickname" value="${escaparHtml(yo?.nombre || '')}">
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="seccion-ajustes">
+          <h3>Notificaciones</h3>
+          <div class="grupo-ajustes">
+            <label class="opcion">${icono('campana')}<span class="textos"><strong>Avisos en este dispositivo</strong><span id="estado-notif">${escaparHtml(textoEstadoNotificaciones())}</span></span>
+              <input type="checkbox" class="interruptor" id="interruptor-notif" ${notificacionesActivas() ? 'checked' : ''}></label>
+            <label class="opcion">${icono('ojo')}<span class="textos"><strong>Mostrar el mensaje en el aviso</strong><span>Apagado, el aviso solo dice “Tienes un mensaje nuevo 💌”.</span></span>
+              <input type="checkbox" class="interruptor" id="interruptor-vista" ${yo?.notif_con_texto ? 'checked' : ''}></label>
+            <label class="opcion">${icono('mensajeCorazon')}<span class="textos"><strong>Sonido dentro del chat</strong><span>Un tono suave cuando llega un mensaje.</span></span>
+              <input type="checkbox" class="interruptor" id="interruptor-sonido" ${sonido ? 'checked' : ''}></label>
+          </div>
+        </section>
+
+        <section class="seccion-ajustes">
+          <h3>Apariencia</h3>
+          <div class="grupo-ajustes">
+            <div class="opcion bloque"><span class="textos"><strong>Tema</strong><span>Claro: piel y lila · Oscuro: negro y rojo suave</span></span>
+              <div class="segmentos" role="group" aria-label="Tema" data-grupo="tema">
+                ${segmento('auto', 'solLuna', 'Automático', tema)}${segmento('claro', 'sol', 'Claro', tema)}${segmento('oscuro', 'luna', 'Oscuro', tema)}
+              </div></div>
+            <div class="opcion bloque"><span class="textos"><strong>Fondo del chat</strong><span>La foto de fondo se guarda solo en este dispositivo.</span></span>
+              <div class="segmentos" role="group" aria-label="Fondo del chat" data-grupo="fondo">
+                ${segmento('corazones', 'corazon', 'Corazones', fondo)}${segmento('liso', 'paleta', 'Liso', fondo)}${segmento('foto', 'imagen', 'Foto', fondo)}
+              </div></div>
+          </div>
+        </section>
+
+        <section class="seccion-ajustes">
+          <h3>Seguridad</h3>
+          <div class="grupo-ajustes">
+            <button type="button" class="opcion" data-accion="cambiar-pin">${icono('candado')}<span class="textos"><strong>Cambiar PIN</strong><span>Protege la app en este dispositivo.</span></span>${icono('derecha', 'flecha')}</button>
+            <div class="opcion bloque"><span class="textos"><strong>Bloquear automáticamente</strong><span>Tiempo fuera de la app antes de pedir el PIN.</span></span>
+              <div class="segmentos" role="group" aria-label="Bloqueo automático" data-grupo="bloqueo">
+                ${segmento('0', 'candado', 'Al salir', bloqueo)}${segmento('60', 'reloj', '1 min', bloqueo)}${segmento('300', 'reloj', '5 min', bloqueo)}
+              </div></div>
+            <button type="button" class="opcion" data-accion="bloquear">${icono('escudo')}<span class="textos"><strong>Bloquear ahora</strong><span>Pide el PIN de inmediato.</span></span>${icono('derecha', 'flecha')}</button>
+          </div>
+        </section>
+
+        ${
+          mostrarInstalar
+            ? `<section class="seccion-ajustes"><h3>App</h3><div class="grupo-ajustes">
+                <button type="button" class="opcion" data-accion="instalar">${icono('celular')}<span class="textos"><strong>Instalar en este dispositivo</strong><span>Queda con su ícono, como cualquier app.</span></span>${icono('derecha', 'flecha')}</button>
+              </div></section>`
+            : ''
+        }
+
+        <section class="seccion-ajustes">
+          <h3>Cuenta</h3>
+          <div class="grupo-ajustes">
+            <div class="opcion">${icono('correo')}<span class="textos"><strong>${escaparHtml(ctx.correo || 'Sin correo')}</strong><span>${pareja ? `Chat privado con ${escaparHtml(pareja.nombre)}` : 'Chat privado'}</span></span></div>
+            <button type="button" class="opcion" data-accion="cambiar-clave">${icono('llave')}<span class="textos"><strong>Cambiar contraseña</strong><span>Pon una que solo tú sepas.</span></span>${icono('derecha', 'flecha')}</button>
+            <button type="button" class="opcion peligro" data-accion="salir">${icono('salir')}<span class="textos"><strong>Cerrar sesión</strong><span>Borra los mensajes guardados en este dispositivo.</span></span></button>
+          </div>
+        </section>
+
+        <p class="pie-ajustes">Versión ${escaparHtml(CONFIG.VERSION)}${MODO_DEMO ? ' · modo demo' : ''}<span class="firma">Estrellita y Jampier ❤️</span></p>
+      </div>
+    </section>`);
+
+  const cerrar = abrirCapa(panel, () => ctx.alCerrarPanel());
+  ctx.alAbrirPanel();
+  chat.pintarAvatar(panel.querySelector('#avatar-ajustes'), yo);
+
+  // Nombre
+  const campoNombre = panel.querySelector('#nombre-ajustes');
+  const guardarNombre = async () => {
+    const nombre = campoNombre.value.trim().replace(/\s+/g, ' ').slice(0, 40);
+    const perfil = ctx.miPerfil();
+    if (!nombre || !perfil || nombre === perfil.nombre) {
+      if (!nombre && perfil) campoNombre.value = perfil.nombre;
+      return;
+    }
+    try {
+      await backend.actualizarMiPerfil({ nombre });
+      perfil.nombre = nombre;
+      chat.pintarAvatar(panel.querySelector('#avatar-ajustes'), perfil);
+      aviso('Nombre guardado');
+    } catch {
+      aviso('No se pudo guardar el nombre. Revisa tu conexión.');
+      campoNombre.value = perfil.nombre;
+    }
+  };
+  campoNombre.addEventListener('change', guardarNombre);
+  campoNombre.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') campoNombre.blur();
+  });
+
+  // Interruptores
+  panel.querySelector('#interruptor-notif').addEventListener('change', async (e) => {
+    const casilla = e.currentTarget;
+    if (casilla.checked) {
+      const ok = await activarNotificaciones();
+      casilla.checked = ok;
+    } else {
+      await desactivarNotificaciones();
+      aviso('Avisos apagados en este dispositivo');
+    }
+    panel.querySelector('#estado-notif').textContent = textoEstadoNotificaciones();
+  });
+  panel.querySelector('#interruptor-vista').addEventListener('change', async (e) => {
+    const casilla = e.currentTarget;
+    const perfil = ctx.miPerfil();
+    try {
+      await backend.actualizarMiPerfil({ notif_con_texto: casilla.checked });
+      if (perfil) perfil.notif_con_texto = casilla.checked;
+    } catch {
+      casilla.checked = !casilla.checked;
+      aviso('No se pudo guardar. Revisa tu conexión.');
+    }
+  });
+  panel.querySelector('#interruptor-sonido').addEventListener('change', (e) => local.guardar('sonido', e.currentTarget.checked));
+
+  // Segmentos y acciones
+  panel.addEventListener('click', async (e) => {
+    if (e.target.closest('[data-cerrar]')) return cerrar();
+    const opcion = e.target.closest('.segmentos [data-valor]');
+    if (opcion) {
+      const grupo = opcion.closest('.segmentos');
+      const valor = opcion.dataset.valor;
+      const marcar = () => grupo.querySelectorAll('[data-valor]').forEach((b) => b.setAttribute('aria-pressed', String(b === opcion)));
+      if (grupo.dataset.grupo === 'tema') {
+        aplicarTema(valor);
+        marcar();
+      } else if (grupo.dataset.grupo === 'bloqueo') {
+        local.guardar('bloqueo-seg', Number(valor));
+        marcar();
+      } else if (grupo.dataset.grupo === 'fondo') {
+        if (valor === 'foto') $('#selector-fondo').click();
+        else {
+          await aplicarFondo(valor);
+          marcar();
+        }
+      }
+      return;
+    }
+    const accion = e.target.closest('[data-accion]')?.dataset.accion;
+    if (accion === 'foto') $('#selector-avatar').click();
+    else if (accion === 'cambiar-pin') {
+      cerrar();
+      setTimeout(() => {
+        pin.cambiando = true;
+        mostrarPin('actual');
+      }, 60);
+    } else if (accion === 'bloquear') {
+      cerrar();
+      setTimeout(bloquear, 60);
+    } else if (accion === 'instalar') instalar();
+    else if (accion === 'cambiar-clave') abrirCambioDeClave();
+    else if (accion === 'salir') cerrarSesion();
+  });
+}
+
+/** Cambiar la contraseña (cada uno pone la suya: ni la pareja ni quien creó la cuenta la sabrá). */
+function abrirCambioDeClave() {
+  const { capa, cerrar } = dialogo(
+    `<h2>Cambiar contraseña</h2>
+     <p>Mínimo 8 caracteres. Sirve para entrar desde cualquier dispositivo.</p>
+     <form class="formulario-clave" novalidate>
+       <label class="etiqueta" for="clave-nueva">Contraseña nueva</label>
+       <div class="campo-texto">${icono('llave')}<input id="clave-nueva" type="password" autocomplete="new-password" maxlength="72" required></div>
+       <label class="etiqueta" for="clave-repetida">Repítela</label>
+       <div class="campo-texto">${icono('llave')}<input id="clave-repetida" type="password" autocomplete="new-password" maxlength="72" required></div>
+       <p class="error-texto" role="alert"></p>
+       <div class="botones">
+         <button type="button" class="boton fantasma" data-cerrar>Cancelar</button>
+         <button type="submit" class="boton">Guardar</button>
+       </div>
+     </form>`,
+    'Cambiar contraseña',
+  );
+  const formulario = capa.querySelector('form');
+  const error = formulario.querySelector('.error-texto');
+  const boton = formulario.querySelector('[type="submit"]');
+  setTimeout(() => formulario.querySelector('#clave-nueva').focus(), 80);
+  formulario.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const nueva = formulario.querySelector('#clave-nueva').value;
+    const repetida = formulario.querySelector('#clave-repetida').value;
+    if (nueva.length < 8) return void (error.textContent = 'Usa al menos 8 caracteres.');
+    if (nueva !== repetida) return void (error.textContent = 'Las dos no coinciden. Escríbelas de nuevo.');
+    error.textContent = '';
+    boton.disabled = true;
+    try {
+      await backend.cambiarClave(nueva);
+      cerrar();
+      aviso(MODO_DEMO ? 'Así se cambia (en la vista previa no se guarda) 🔑' : 'Contraseña cambiada 🔑');
+    } catch (err) {
+      error.textContent = err?.message || 'No se pudo cambiar. Inténtalo de nuevo.';
+      boton.disabled = false;
+    }
+  });
+}
+
+function enlazarSelectoresDeAjustes() {
+  $('#selector-avatar').addEventListener('change', async (e) => {
+    const archivo = e.currentTarget.files?.[0];
+    e.currentTarget.value = '';
+    if (!archivo) return;
+    const perfil = ctx.miPerfil();
+    if (!perfil) return;
+    const quitar = aviso('Subiendo tu foto…', { duracion: 0 });
+    try {
+      const r = await comprimirImagen(archivo, { maxLado: 512, cuadrado: true, calidad: 0.85 });
+      const ruta = `${ctx.yo}/avatar-${Date.now()}.${r.ext}`;
+      await backend.subirMedia(r.blob, ruta, r.tipo);
+      const anterior = perfil.avatar_path;
+      await backend.actualizarMiPerfil({ avatar_path: ruta });
+      perfil.avatar_path = ruta;
+      if (anterior && anterior !== ruta) backend.borrarMedia(anterior);
+      document.querySelectorAll('#avatar-ajustes, #avatar-pin').forEach((n) => chat.pintarAvatar(n, perfil));
+      quitar?.();
+      aviso('Foto de perfil actualizada');
+    } catch (error) {
+      quitar?.();
+      aviso(esErrorDeRed(error) ? 'Sin conexión: no se pudo subir la foto.' : error?.message || 'No se pudo cambiar la foto.');
+    }
+  });
+
+  $('#selector-fondo').addEventListener('change', async (e) => {
+    const archivo = e.currentTarget.files?.[0];
+    e.currentTarget.value = '';
+    if (!archivo) return;
+    try {
+      const r = await comprimirImagen(archivo, { maxLado: 1600, calidad: 0.8 });
+      await kv.guardar('fondo-foto', { buffer: await r.blob.arrayBuffer(), tipo: r.tipo });
+      await aplicarFondo('foto');
+      document.querySelectorAll('[data-grupo="fondo"] [data-valor]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.valor === 'foto')));
+      aviso('Fondo actualizado');
+    } catch (error) {
+      aviso(error?.message || 'No se pudo usar esa foto.');
+    }
+  });
+}
+
+/* ==========================================================================
+   Salir y volver a la app
+   ========================================================================== */
+function alOcultar() {
+  app.ocultoDesde = Date.now();
+  if (ctx.yo && tienePin(ctx.yo) && !app.bloqueado) $('#app').classList.add('privado');
+  detenerLatido();
+  backend?.presencia?.(false);
+  if (ctx.yo) backend?.latidoAlSalir?.();
+  chat.alOcultar();
+}
+
+function alMostrar() {
+  $('#app').classList.remove('privado');
+  if (!ctx.yo) return;
+  const ausencia = Date.now() - (app.ocultoDesde || Date.now());
+  if (tienePin(ctx.yo) && !app.bloqueado && app.pantalla === 'chat' && ausencia >= retardoBloqueoMs()) bloquear();
+  if (!app.bloqueado) {
+    iniciarLatido();
+    backend.presencia(true);
+  }
+  chat.alVolver();
+}
+
+/* ==========================================================================
+   Arranque
+   ========================================================================== */
+async function arrancar() {
+  if (VISTA_PREVIA) document.documentElement.classList.add('vista-previa');
+  pintarIconos();
+  aplicarTema(local.leer('tema', 'auto'));
+  configurarAlturaVisible();
+  document.addEventListener('pointerdown', prepararSonido, { capture: true, passive: true });
+  document.addEventListener('keydown', prepararSonido, { capture: true, passive: true });
+
+  backend = MODO_DEMO ? new BackendDemo(window.__ACTIVOS_DEMO__ || {}) : new BackendSupabase();
+  backend.alSalir = () => {
+    if (ctx.yo) forzarSalida();
+  };
+  ctx.backend = backend;
+  chat.iniciarChat(ctx);
+  enlazarEntrada();
+  enlazarPin();
+  enlazarSelectoresDeAjustes();
+  escucharInstalacion();
+  $('#boton-tema').addEventListener('click', alternarTema);
+  pintarBotonTema();
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') alOcultar();
+    else alMostrar();
+  });
+  window.addEventListener('pagehide', () => {
+    if (ctx.yo) backend?.latidoAlSalir?.();
+  });
+
+  let usuario = null;
+  try {
+    usuario = await backend.iniciar();
+  } catch (error) {
+    console.error('No se pudo iniciar la conexión:', error);
+    mostrarEntrada();
+    errorEntrada(
+      /supabaseUrl|Invalid|URL/i.test(String(error?.message))
+        ? 'La configuración de Supabase no es válida. Revisa SUPABASE_URL y SUPABASE_KEY en js/config.js.'
+        : 'No se pudo conectar. Revisa tu internet y recarga la página.',
+    );
+    return;
+  }
+
+  registrarServiceWorker();
+  if (!usuario) return mostrarEntrada();
+  await entrarConUsuario(usuario);
+}
+
+arrancar();
