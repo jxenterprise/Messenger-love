@@ -20,6 +20,7 @@ Todo funciona con planes **gratis**: Supabase (la base de datos y el tiempo real
 | `herramientas/generar-claves-vapid.html` | Crea las claves de las notificaciones (se abre con doble clic). |
 | `despertador/worker.js` | Evita que Supabase "duerma" el proyecto si pasan una semana sin escribirse. |
 | `desarrollo/` | Pruebas automáticas (no se publican en la web). |
+| `wrangler.toml` | Le dice a Cloudflare que publique solo la carpeta `web`. No hay que tocarlo. |
 
 > 💡 **¿Por qué al abrir la página sale "Casi listo"?** Porque la app todavía no tiene los datos de Supabase (pasos 1 a 4). Apenas los pegues en `web/js/config.js`, aparece la pantalla para entrar con correo y contraseña y los mensajes van y vienen de verdad entre los dos celulares. No hay respuestas automáticas: lo que uno escribe le llega al otro.
 
@@ -95,22 +96,24 @@ Así, cada cambio que guardes en la rama `main` de GitHub se publica solo.
 
 1. Entra a [dash.cloudflare.com](https://dash.cloudflare.com) (crea la cuenta si no tienes, es gratis).
 2. **Workers & Pages** → **Create application** → **Pages** → conecta tu cuenta de GitHub y elige el repositorio `Messenger-love`.
-3. Llena la configuración así (**esto es lo más importante**):
+3. Llena la configuración así:
 
    | Campo | Valor |
    |---|---|
-   | Project name | el que quieras (será la dirección `nombre.pages.dev`) |
+   | Project name | `messenger-estrellita-jampier-18` (será la dirección `nombre.pages.dev`) |
    | Production branch | `main` |
    | Framework preset | `None` |
    | Build command | *(vacío)* |
-   | **Build output directory** | **`web`** |
+   | Build output directory | `web` |
    | Root directory (advanced) | *(vacío)* |
 
 4. **Save and Deploy**, espera 1 minuto y abre la dirección `.pages.dev`.
 
 ✅ Comprueba: debe salir el logo y la pantalla para entrar con correo y contraseña (o "Casi listo" si aún no hiciste el paso 4).
 
-> ⚠️ **¿Ya lo habías creado y la página sale en blanco?** Es porque el *Build output directory* quedó vacío: Cloudflare publica la carpeta completa del proyecto (que no tiene `index.html` en la raíz) y además deja a la vista el README y los archivos SQL. Arréglalo así: **Workers & Pages** → tu proyecto → **Settings** → **Build** (en algunas cuentas se llama *Builds & deployments*) → **Build configuration** → **Edit** → **Build output directory:** `web` → **Save**. Después publica de nuevo: **Deployments** → en el último despliegue **⋯** → **Retry deployment** (o guarda cualquier cambio en GitHub).
+> 🧭 **El archivo `wrangler.toml` ya se encarga de lo importante:** le dice a Cloudflare que publique solo la carpeta `web`. Por eso en el panel de Cloudflare el *Build output directory* aparece bloqueado: se cambia en ese archivo, no allá. Si algún día cambias el nombre del proyecto en Cloudflare, cambia también la línea `name` de `wrangler.toml`.
+>
+> Sin ese archivo, Cloudflare publicaría la carpeta completa del proyecto: la página saldría en blanco (error 404) y quedarían a la vista el README y los archivos SQL.
 
 **Para subir cambios en el futuro:** edita los archivos en GitHub (lápiz ✏️) o súbelos con **Add file → Upload files**, siempre en la rama `main`, y Cloudflare publica solo. Cuando cambies algo de la carpeta `web`, sube también la versión en `web/sw.js` (`VERSION`) y en `web/js/config.js` (`VERSION`): así los celulares muestran "Hay una versión nueva de la app ✨".
 
@@ -212,7 +215,7 @@ Cloudflare Pages: gratis, sin límite de visitas. Para ver el consumo: Supabase 
 
 ## Si algo falla
 
-**La dirección `.pages.dev` sale en blanco (o "404")** → en Cloudflare falta poner **Build output directory: `web`** (mira el aviso ⚠️ del paso 7) y volver a publicar.
+**La dirección `.pages.dev` sale en blanco (o "404")** → revisa que `wrangler.toml` esté en la raíz del repositorio, que su línea `name` sea igual al nombre del proyecto en Cloudflare, y que los cambios estén en la rama `main` (la dirección principal solo publica `main`). Después de guardar, espera 1 o 2 minutos y recarga.
 
 **Sale la pantalla "Casi listo 💜"** → faltan la URL y la *publishable key* de Supabase en `web/js/config.js` (paso 4). Mientras tanto la app no muestra conversaciones de ejemplo; el botón **Ver una vista previa** abre una demo con mensajes de mentira que no salen del celular.
 

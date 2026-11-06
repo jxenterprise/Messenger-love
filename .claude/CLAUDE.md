@@ -7,14 +7,16 @@ Contexto para retomar este proyecto en otra sesión. Léelo completo antes de to
 Chat privado (PWA) para exactamente **2 personas**: Jampier (JX, dueño del proyecto) y Estrellita, su novia. Proyecto **personal**: no lleva el crédito "Diseño y desarrollo: JX Company". Nombre: "Messenger Estrellita y Jampier ❤️"; nombre corto en el ícono: "E ❤ J".
 
 - Front: HTML + CSS + JS (módulos ES, sin framework ni build) en `web/`, publicado en Cloudflare Pages **conectado al repo de GitHub** `jxenterprise/Messenger-love` (público). Rama `main` = producción: cada push a `main` publica solo; las demás ramas generan vistas previas. Proyecto: `messenger-estrellita-jampier-18.pages.dev`.
-  - **Build output directory = `web`** (build command vacío). Si queda vacío, Cloudflare publica la raíz del repo: `/` da 404 en blanco y quedan expuestos README, SQL y pruebas. Eso pasó en el primer despliegue (6 nov 2026).
+  - **`wrangler.toml` en la raíz** (`name = "messenger-estrellita-jampier-18"`, `pages_build_output_dir = "web"`) fija qué se publica; es la fuente de verdad y el campo del panel queda bloqueado. Verificado el 6 nov 2026 en una vista previa: `/` 200 con la app y `_headers` aplicadas; README, SQL, `.claude/` y `wrangler.toml` dan 404. `name` debe ser igual al proyecto de Pages.
+  - Sin ese archivo (y con el panel en blanco), Cloudflare publica la raíz del repo: `/` da 404 en blanco y quedan expuestos README, SQL y pruebas. Eso pasó en el primer despliegue.
+  - La caché del borde de Cloudflare puede seguir sirviendo un rato rutas viejas en el alias de la rama: para verificar, usar la URL única del despliegue (`<hash>.messenger-estrellita-jampier-18.pages.dev`) o agregar `?algo` a la ruta.
   - `_headers`, `404.html` y `robots.txt` solo funcionan porque están en la raíz de lo publicado (`web/`).
 - Back: **Supabase** (Auth correo+contraseña, Postgres con RLS, Realtime, Storage privado, Edge Function `enviar-push`).
 - Llamadas de voz/video: **pendiente para la versión 2** (lo pidió así).
 
 ## Estado (6 nov 2026)
 
-- Código completo y probado. **Pendiente de JX:** poner *Build output directory* = `web` en Cloudflare, crear el proyecto Supabase (pasos 1–6 del README) y pegar URL + publishable key (+ VAPID pública) en `web/js/config.js`.
+- Código completo y probado. **Pendiente:** llevar el PR jxenterprise/Messenger-love#1 a `main` (ahí se arregla la dirección principal), y que JX cree el proyecto Supabase (pasos 1–6 del README) y pegue URL + publishable key (+ VAPID pública) en `web/js/config.js`.
 - JX no quiere un "bot": sin Supabase el sitio publicado muestra "Casi listo", nunca la pareja simulada (ver `FALTA_CONEXION` abajo).
 
 ## Preferencias de JX (respetarlas siempre)
@@ -32,6 +34,7 @@ Chat privado (PWA) para exactamente **2 personas**: Jampier (JX, dueño del proy
 ```
 .claude/CLAUDE.md         este archivo (escondido a pedido de JX)
 .gitignore                artefactos de las pruebas (node_modules, capturas, .deno…)
+wrangler.toml             Cloudflare Pages: publicar solo web/ (ver arriba)
 web/                      ← lo único que publica Cloudflare Pages (Build output directory)
   index.html              pantallas: carga, conexión ("Casi listo"), entrada, chat, PIN
   css/styles.css          tokens claro (piel+lila) / oscuro (negro+rojo suave), componentes
