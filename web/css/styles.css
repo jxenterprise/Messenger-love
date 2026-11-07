@@ -598,6 +598,17 @@ a {
   font-size: 15px;
 }
 
+/* Campo del PIN: 4 números grandes y espaciados */
+.campo-pin {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.5em;
+  font-variant-numeric: tabular-nums;
+}
+.campo-pin::placeholder {
+  letter-spacing: 0.35em;
+}
+
 /* "Casi listo": la app publicada aún no está conectada a Supabase */
 .caja-conexion {
   display: flex;
@@ -700,13 +711,6 @@ a {
   text-wrap: balance;
 }
 .caja-pin .campo-texto {
-  width: 100%;
-  text-align: left;
-}
-.caja-pin #paso-nombre {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
   width: 100%;
   text-align: left;
 }
@@ -1925,6 +1929,7 @@ a.boton {
 }
 .formulario-clave .error-texto {
   margin: 8px 0 10px;
+  color: var(--peligro);
 }
 .lista-info {
   margin: 0 4px 16px;

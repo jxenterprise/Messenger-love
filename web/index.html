@@ -48,27 +48,28 @@
 
         <!-- Solo se ve en modo demo -->
         <div class="caja-demo" id="caja-demo" hidden>
-          <p><strong>Vista previa.</strong> Entra como cualquiera de los dos para ver cómo funciona. Los mensajes son de ejemplo.</p>
+          <p><strong>Vista previa.</strong> Entra con el usuario <strong>jampier</strong> o <strong>estrellita</strong> y el PIN <strong>1234</strong>, o toca un botón. Los mensajes son de ejemplo.</p>
           <div class="botones-demo">
             <button type="button" class="boton" data-demo="jampier">Soy Jampier</button>
             <button type="button" class="boton secundario" data-demo="estrellita">Soy Estrellita</button>
           </div>
         </div>
 
+        <!-- ✏️ Entrar: usuario (jampier / estrellita) + el PIN de 4 números de los dos -->
         <form class="formulario" id="formulario-entrada" novalidate>
           <div>
-            <label class="etiqueta" for="correo">Correo</label>
+            <label class="etiqueta" for="usuario">Usuario</label>
             <div class="campo-texto">
-              <span data-icono="correo"></span>
-              <input id="correo" name="correo" type="email" inputmode="email" autocomplete="username" placeholder="tu@correo.com" required>
+              <span data-icono="usuario"></span>
+              <input id="usuario" name="usuario" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="30" placeholder="Tu usuario" required>
             </div>
           </div>
           <div>
-            <label class="etiqueta" for="clave">Contraseña</label>
+            <label class="etiqueta" for="pin-entrada">PIN</label>
             <div class="campo-texto">
-              <span data-icono="llave"></span>
-              <input id="clave" name="clave" type="password" autocomplete="current-password" placeholder="Tu contraseña" required>
-              <button type="button" class="boton-icono" id="ver-clave" aria-label="Mostrar contraseña" data-icono="ojo"></button>
+              <span data-icono="candado"></span>
+              <input id="pin-entrada" name="pin" class="campo-pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="current-password" placeholder="••••" required>
+              <button type="button" class="boton-icono" id="ver-clave" aria-label="Mostrar PIN" data-icono="ojo"></button>
             </div>
           </div>
           <button class="boton ancho" type="submit" id="boton-entrar">Entrar</button>
@@ -93,7 +94,7 @@
 
         <div class="caja-conexion" id="conexion-pendiente">
           <p class="titulo-caja">Casi listo 💜</p>
-          <p>Estamos terminando de preparar nuestro chat. Muy pronto podrás entrar con tu correo y tu contraseña.</p>
+          <p>Estamos terminando de preparar nuestro chat. Muy pronto podrás entrar con tu usuario y el PIN.</p>
         </div>
 
         <div class="caja-conexion peligro" id="conexion-peligro" role="alert" hidden>
@@ -105,7 +106,7 @@
           <summary>Para Jampier: ¿qué falta?</summary>
           <ol class="pasos">
             <li><span>Crear el proyecto en <strong>Supabase</strong> y correr <code>supabase/01_estructura.sql</code>.</span></li>
-            <li><span>Crear las 2 cuentas en <strong>Authentication → Users</strong>.</span></li>
+            <li><span>Crear las 2 cuentas en <strong>Authentication → Users</strong> y el PIN con <code>supabase/03_pin.sql</code>.</span></li>
             <li><span>Pegar la <strong>Project URL</strong> y la <strong>Publishable key</strong> en <code>web/js/config.js</code>.</span></li>
           </ol>
           <p>Cada paso está explicado en el README del proyecto.</p>
@@ -191,15 +192,6 @@
         <span class="avatar avatar-pin" id="avatar-pin" aria-hidden="true">♥</span>
         <h2 id="titulo-pin">Escribe tu PIN</h2>
         <p id="texto-pin">Para abrir el chat</p>
-
-        <div id="paso-nombre" hidden>
-          <label class="etiqueta" for="nombre-propio">Tu nombre</label>
-          <div class="campo-texto">
-            <span data-icono="usuario"></span>
-            <input id="nombre-propio" maxlength="40" autocomplete="nickname" placeholder="Tu nombre o apodo">
-          </div>
-          <button type="button" class="boton ancho" id="continuar-nombre">Continuar</button>
-        </div>
 
         <div class="puntos-pin" id="puntos-pin" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
         <p class="solo-lector" id="estado-pin-lector" aria-live="polite"></p>

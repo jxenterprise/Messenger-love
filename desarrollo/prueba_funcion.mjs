@@ -4,14 +4,14 @@
 import { build } from 'esbuild';
 import { createRequire } from 'node:module';
 import crypto from 'node:crypto';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const ece = require('http_ece');
 const webpush = require('web-push');
 
 const [, , archivoFuncion] = process.argv;
-const salida = new URL('./funcion-empaquetada.mjs', import.meta.url).pathname;
+const salida = fileURLToPath(new URL('./funcion-empaquetada.mjs', import.meta.url));
 
 await build({
   entryPoints: [archivoFuncion],

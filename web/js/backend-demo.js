@@ -7,7 +7,9 @@
    nada todavía. Ningún mensaje sale del dispositivo.
    ========================================================================== */
 import { local } from './almacen.js';
-import { esEmojiDeAmor, esperar, uuid } from './utilidades.js';
+import { esEmojiDeAmor, esperar, textoRechazoPin, uuid } from './utilidades.js';
+
+const PIN_DEMO = '1234';
 
 const USUARIOS = {
   jampier: { id: 'demo-jampier', email: 'jampier@demo.local', nombre: 'Jampier' },
@@ -55,22 +57,39 @@ export class BackendDemo {
     return this.usuario;
   }
 
-  async entrarComo(clave) {
-    const u = USUARIOS[clave] || USUARIOS.jampier;
+  /** PIN de la vista previa (el real nunca puede ser 1234: es muy fácil). */
+  pinDemo() {
+    return local.leer('demo:pin', PIN_DEMO);
+  }
+
+  /** Igual que la app real: usuario + PIN. */
+  async entrar(usuario, pin) {
     await esperar(300);
+    const clave = String(usuario || '').trim().toLowerCase();
+    const u = USUARIOS[clave];
+    if (!u || pin !== this.pinDemo()) throw new Error(textoRechazoPin({ motivo: 'datos' }));
     this.usuario = { id: u.id, email: u.email };
     local.guardar('demo:usuario', clave);
     this._sembrar();
-    return this.usuario;
+    return { usuario: this.usuario, version: this.versionDemo() };
   }
 
-  async entrar(correo) {
-    return this.entrarComo(/estre/i.test(correo || '') ? 'estrellita' : 'jampier');
+  versionDemo() {
+    return local.leer('demo:pin-version', 1);
   }
 
-  /** En la vista previa no hay contraseñas reales: solo se simula la espera. */
-  async cambiarClave() {
-    await esperar(500);
+  async versionPin() {
+    return this.versionDemo();
+  }
+
+  async cambiarPin(actual, nuevo) {
+    await esperar(400);
+    if (actual !== this.pinDemo()) throw new Error('El PIN actual no es correcto.');
+    if (nuevo === actual) throw new Error('El PIN nuevo es igual al actual.');
+    local.guardar('demo:pin', nuevo);
+    const version = this.versionDemo() + 1;
+    local.guardar('demo:pin-version', version);
+    return version;
   }
 
   async salir() {
@@ -98,8 +117,8 @@ export class BackendDemo {
     const nombreGuardado = (id, porDefecto) => local.leer(`demo:nombre:${id}`, porDefecto);
 
     this.perfiles = [
-      { id: J, nombre: nombreGuardado(J, 'Jampier'), avatar_path: null, notif_con_texto: false, en_app: false, visto_en: hace(3 * min) },
-      { id: E, nombre: nombreGuardado(E, 'Estrellita'), avatar_path: null, notif_con_texto: false, en_app: false, visto_en: hace(3 * min) },
+      { id: J, usuario: 'jampier', nombre: nombreGuardado(J, 'Jampier'), avatar_path: null, notif_con_texto: false, en_app: false, visto_en: hace(3 * min) },
+      { id: E, usuario: 'estrellita', nombre: nombreGuardado(E, 'Estrellita'), avatar_path: null, notif_con_texto: false, en_app: false, visto_en: hace(3 * min) },
     ];
 
     const filas = [

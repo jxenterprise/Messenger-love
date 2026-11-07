@@ -202,3 +202,20 @@ export function esErrorDeRed(error) {
   const estado = Number(crudo);
   return estado === 0 || estado >= 500;
 }
+
+/**
+ * Explica por qué no se pudo entrar (o cambiar el PIN), según lo que responde
+ * el servidor: { motivo: 'datos' | 'esperar' | 'bloqueado' | 'sin-pin', segundos, restantes }.
+ */
+export function textoRechazoPin({ motivo, segundos, restantes } = {}) {
+  if (motivo === 'esperar') {
+    const minutos = Math.max(1, Math.ceil((Number(segundos) || 900) / 60));
+    return `Demasiados intentos. Espera ${minutos} ${minutos === 1 ? 'minuto' : 'minutos'} y vuelve a intentar.`;
+  }
+  if (motivo === 'bloqueado') return 'Cuenta bloqueada por seguridad (muchos intentos fallidos). Jampier la desbloquea desde Supabase con supabase/03_pin.sql.';
+  if (motivo === 'sin-pin') return 'Todavía no se ha creado el PIN. Créalo en Supabase con supabase/03_pin.sql (mira la guía).';
+  const quedan = Number(restantes);
+  return Number.isFinite(quedan) && quedan <= 5
+    ? `Usuario o PIN incorrectos. Te quedan ${quedan} ${quedan === 1 ? 'intento' : 'intentos'} antes del bloqueo.`
+    : 'Usuario o PIN incorrectos.';
+}

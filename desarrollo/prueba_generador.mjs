@@ -3,12 +3,13 @@
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const webpush = require('web-push');
-const { chromium } = require('playwright');
 
 import { mkdirSync } from 'node:fs';
-const [, , archivo, carpeta = 'capturas'] = process.argv;
+import { pathToFileURL } from 'node:url';
+import { abrirNavegador, aqui } from './apoyo_navegador.mjs';
+const [, , archivo = aqui('../herramientas/generar-claves-vapid.html'), carpeta = aqui('./capturas')] = process.argv;
 mkdirSync(carpeta, { recursive: true });
-const nav = await chromium.launch();
+const nav = await abrirNavegador();
 const errores = [];
 for (const esquema of ['light', 'dark']) {
   const ctx = await nav.newContext({ viewport: { width: 390, height: 844 }, colorScheme: esquema, deviceScaleFactor: 1 });
@@ -16,7 +17,7 @@ for (const esquema of ['light', 'dark']) {
   const pag = await ctx.newPage();
   pag.on('pageerror', (e) => errores.push(String(e)));
   pag.on('console', (m) => m.type() === 'error' && errores.push(m.text()));
-  await pag.goto(`file://${archivo}`);
+  await pag.goto(pathToFileURL(archivo).href);
   await pag.click('#generar');
   await pag.waitForSelector('#resultado:not([hidden])');
   await pag.fill('#correo', 'jx@ejemplo.com');
@@ -25,7 +26,8 @@ for (const esquema of ['light', 'dark']) {
   const bloque = await pag.textContent('#bloque-supabase');
   const linea = await pag.textContent('#linea-config');
   await pag.click('[data-copiar="bloque-supabase"]');
-  const copiado = await pag.evaluate(() => navigator.clipboard.readText()).catch(() => '(sin acceso)');
+  // Windows guarda los saltos de línea como \r\n en el portapapeles: se comparan sin eso
+  const copiado = (await pag.evaluate(() => navigator.clipboard.readText()).catch(() => '(sin acceso)')).replace(/\r\n/g, '\n');
   await pag.screenshot({ path: `${carpeta}/generador-${esquema}.png`, fullPage: true });
   // web-push valida longitudes y formato al configurar VAPID
   let valida = true;

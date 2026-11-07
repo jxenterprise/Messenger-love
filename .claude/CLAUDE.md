@@ -11,12 +11,22 @@ Chat privado (PWA) para exactamente **2 personas**: Jampier (JX, dueño del proy
   - Sin ese archivo (y con el panel en blanco), Cloudflare publica la raíz del repo: `/` da 404 en blanco y quedan expuestos README, SQL y pruebas. Eso pasó en el primer despliegue.
   - La caché del borde de Cloudflare puede seguir sirviendo un rato rutas viejas en el alias de la rama: para verificar, usar la URL única del despliegue (`<hash>.messenger-estrellita-jampier-18.pages.dev`) o agregar `?algo` a la ruta.
   - `_headers`, `404.html` y `robots.txt` solo funcionan porque están en la raíz de lo publicado (`web/`).
-- Back: **Supabase** (Auth correo+contraseña, Postgres con RLS, Realtime, Storage privado, Edge Function `enviar-push`).
+- Back: **Supabase** (Auth, Postgres con RLS, Realtime, Storage privado, Edge Functions `entrar-con-pin` y `enviar-push`).
+- **Ingreso (pedido de JX, 7 nov 2026): usuario + el MISMO PIN de 4 números para los dos.** No hay contraseñas en la app.
+  - `perfiles.usuario` sale del correo de la cuenta (`tucorreo+jampier@gmail.com` → `jampier`; sin `+`, lo de antes de la @). La app no puede cambiarlo.
+  - El PIN vive cifrado (bcrypt) en `privado.acceso_pin` (una fila, con `version`). Intentos en `privado.acceso_intentos`: 5 fallos seguidos → 15 min de espera; 15 → bloqueada hasta `privado.desbloquear()` o `privado.poner_pin()` (plantilla `supabase/03_pin.sql`). PINs fáciles rechazados (`privado.pin_debil`).
+  - Flujo: la app llama `entrar-con-pin` → `verificar_acceso` (solo service_role) → `auth.admin.generateLink({type:'magiclink'})` (no envía correo) → devuelve `properties.hashed_token` → la app hace `verifyOtp({token_hash, type:'email'})`. Verify JWT apagado.
+  - Al entrar, la app guarda el PIN cifrado (PBKDF2, `candado.js`) para el bloqueo automático sin señal, y la `version` del PIN; si `version_pin()` cambia (el otro lo cambió), fuerza entrar de nuevo.
+  - `cambiar_pin(actual, nuevo)` devuelve jsonb y NO lanza error con el PIN actual equivocado: un error desharía el conteo de intentos (bug encontrado por las pruebas).
+  - Riesgo aceptado: cualquiera que sepa el PIN y un usuario entra como esa persona (los dos comparten PIN, así lo quiso JX). Un atacante puede bloquear las cuentas a propósito (15 fallos); las sesiones abiertas no se caen.
 - Llamadas de voz/video: **pendiente para la versión 2** (lo pidió así).
 
-## Estado (6 nov 2026)
+## Estado (7 nov 2026)
 
-- Código completo y probado. **Pendiente:** llevar el PR jxenterprise/Messenger-love#1 a `main` (ahí se arregla la dirección principal), y que JX cree el proyecto Supabase (pasos 1–6 del README) y pegue URL + publishable key (+ VAPID pública) en `web/js/config.js`.
+- PR #1 ya está en `main`: la dirección .pages.dev muestra la app ("Casi listo").
+- Ingreso con usuario + PIN hecho y probado (versión 1.1.0). La carpeta local de JX (Windows) está conectada a GitHub con git (`origin/main`).
+- **Pendiente de JX:** crear el proyecto Supabase siguiendo el README (pasos 1–6: SQL 01, 2 cuentas con correo+usuario, 03_pin.sql, las 2 funciones con Verify JWT apagado, claves VAPID) y pasar la Project URL + publishable key para ponerlas en `web/js/config.js`.
+- El Python de JX (3.13) está dañado (falta `pickle`); instaló 3.15 (comando `py`). Ya no se usa Python en el proyecto.
 - JX no quiere un "bot": sin Supabase el sitio publicado muestra "Casi listo", nunca la pareja simulada (ver `FALTA_CONEXION` abajo).
 
 ## Preferencias de JX (respetarlas siempre)
@@ -36,7 +46,7 @@ Chat privado (PWA) para exactamente **2 personas**: Jampier (JX, dueño del proy
 .gitignore                artefactos de las pruebas (node_modules, capturas, .deno…)
 wrangler.toml             Cloudflare Pages: publicar solo web/ (ver arriba)
 web/                      ← lo único que publica Cloudflare Pages (Build output directory)
-  index.html              pantallas: carga, conexión ("Casi listo"), entrada, chat, PIN
+  index.html              pantallas: carga, conexión ("Casi listo"), entrada (usuario + PIN), chat, PIN de bloqueo
   css/styles.css          tokens claro (piel+lila) / oscuro (negro+rojo suave), componentes
   js/config.js            ✏️ URL + publishable key de Supabase + VAPID pública; abajo: limpieza de lo pegado,
                           CLAVE_PELIGROSA (sb_secret_/service_role → aviso rojo, no se usa), CONECTADA,
@@ -59,7 +69,9 @@ web/                      ← lo único que publica Cloudflare Pages (Build outp
   manifest.webmanifest    PWA + atajo "Te extraño" (?accion=te-extrano)
   _headers                CSP y cabeceras de seguridad de Cloudflare
 supabase/01_estructura.sql           tablas, RLS, RPC, realtime, bucket (idempotente)
-supabase/02_nueva_contrasena.sql     plantilla para restablecer contraseña
+supabase/02_nueva_contrasena.sql     plantilla de emergencia para la contraseña interna de una cuenta
+supabase/03_pin.sql                  ✏️ poner el PIN de los dos / desbloquear
+supabase/functions/entrar-con-pin/index.ts  usuario + PIN → pase de un solo uso (magiclink hashed_token)
 supabase/functions/enviar-push/index.ts   Web Push propio (RFC 8291 + VAPID RFC 8292)
 herramientas/generar-claves-vapid.html    genera el par VAPID en el navegador
 despertador/worker.js                Cloudflare Worker con cron: llama rpc/ping
@@ -72,6 +84,8 @@ Si cambias algo aquí, cambia los tres lugares.
 
 - `perfiles(id, nombre, avatar_path, notif_con_texto, en_app, visto_en, …)` — el cliente solo puede actualizar `nombre`, `avatar_path`, `notif_con_texto`.
 - `mensajes(id, client_id unique, remitente, tipo texto|imagen|audio|te_extrano, contenido, media_path, media_meta, responde_a, reacciones jsonb, editado_en, borrado, entregado_en, leido_en, notificado_en, creado_en, actualizado_en)` — el cliente solo inserta (`upsert … onConflict client_id, ignoreDuplicates`); todo lo demás va por RPC.
+- `perfiles.usuario` (solo lectura para la app). RPC del ingreso: `verificar_acceso(p_usuario, p_pin) → jsonb` (solo service_role), `cambiar_pin(p_actual, p_nuevo) → jsonb {ok, version | motivo}`, `version_pin() → int`. Motivos: `datos` (con `restantes`), `esperar` (con `segundos`), `bloqueado`, `sin-pin`.
+- Backends (`backend-supabase.js` y `backend-demo.js`): `entrar(usuario, pin) → {usuario, version}`, `cambiarPin(actual, nuevo) → version`, `versionPin()`; el demo además `pinDemo()` (1234).
 - RPC: `latido(p_en_app)`, `marcar_entregados()`, `marcar_leidos()`, `reaccionar(p_mensaje, p_emoji)`, `editar_mensaje(p_mensaje, p_texto)` (15 min), `borrar_mensaje(p_mensaje) → media_path`, `guardar_suscripcion(p_endpoint, p_p256dh, p_auth, p_dispositivo)`, `ping()`.
 - `privado.es_miembro()` (security definer, esquema no expuesto) se usa en todas las políticas.
 - Storage: bucket privado `media`, rutas `<uid>/<client_id>.<ext>` y `<uid>/avatar-<ts>.<ext>`; URLs firmadas de 6 h.
@@ -88,14 +102,15 @@ Si cambias algo aquí, cambia los tres lugares.
 - Vista previa (`window.__VISTA_PREVIA__`): sin service worker, sin historial, sin botón de guardar foto, banner "Vista previa".
 - El sitio publicado nunca muestra la pareja simulada por defecto: sin Supabase → "Casi listo"; el demo solo con `?demo` (o en localhost para las pruebas).
 
-## Pruebas (`desarrollo/`)
+## Pruebas (`desarrollo/`) — todo en Node, `npm test` corre todo
 
-- `prueba_sql.py` — 86 pruebas de RLS/RPC contra PostgreSQL 16 local con `supabase_simulado.sql`.
-- `prueba_funcion.mjs` (34 pruebas, Node) y `e2e_deno.mjs` (Deno real) — la Edge Function; descifra con `http_ece` y verifica la firma VAPID.
-- `prueba_app.py`, `prueba_clave.py`, `prueba_bloqueo.py` — la app en Chrome (modo demo, sirviendo `web/` en 127.0.0.1), celular y PC, claro y oscuro.
-- `prueba_conexion.py` (24 pruebas) — simula un dominio publicado (`eyj.prueba`): "Casi listo" sin datos, `?demo`, login con datos reales (config.js reemplazado al vuelo), aviso rojo con la clave secreta.
-- `servidor_cloudflare.mjs` + `prueba_sin_senal.mjs` — servidor que imita las redirecciones de Cloudflare Pages y prueba que la app instalada abre sin señal.
-- `construir_vista_previa.mjs` — genera el HTML único de la vista previa publicada como artifact.
+- `prueba_sql.mjs` — 136 pruebas de RLS/RPC/PIN con **PGlite** (PostgreSQL en Node, sin instalar nada) y `supabase_simulado.sql`. Reemplazó a `prueba_sql.py`.
+- `prueba_entrar.mjs` (23) — `entrar-con-pin` empaquetada con esbuild + supabase-js real; `verificar_acceso` responde PGlite.
+- `prueba_funcion.mjs` (34) y `e2e_deno.mjs` (Deno real) — `enviar-push`; descifra con `http_ece` y verifica VAPID.
+- `prueba_ingreso.mjs` (44) y `prueba_app.mjs` (18) — navegador (Edge por defecto, `apoyo_navegador.mjs`): ingreso, bloqueo, cambio de PIN, app conectada a un Supabase imitado (dominio `eyj.prueba` + `--unsafely-treat-insecure-origin-as-secure` porque PBKDF2 necesita contexto seguro), "Casi listo", clave secreta, y la app completa en demo. Reemplazaron a los `.py`.
+- `prueba_sin_senal.mjs` + `servidor_cloudflare.mjs` — abrir sin señal con las redirecciones de Cloudflare. `npm run ver` sirve `web/` en http://localhost:8080.
+- `prueba_generador.mjs` — generador de claves VAPID.
+- En Windows los archivos están con CRLF (core.autocrlf=true); usar `fileURLToPath`/`pathToFileURL`, nunca `URL.pathname`, para rutas.
 Instrucciones en `desarrollo/LEEME_PRUEBAS.md`.
 
 ## Ideas para la versión 2

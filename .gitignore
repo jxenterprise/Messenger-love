@@ -12,6 +12,7 @@ desarrollo/.deno/
 desarrollo/capturas/
 desarrollo/vista-previa/
 desarrollo/funcion-empaquetada.mjs
+desarrollo/entrar-empaquetada.mjs
 __pycache__/
 
 # Archivos del sistema y de editores

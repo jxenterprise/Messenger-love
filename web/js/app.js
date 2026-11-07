@@ -394,7 +394,11 @@ function detenerLatido() {
 }
 
 /* ==========================================================================
-   Entrada (login)
+   Entrada: usuario + PIN de 4 números (el mismo PIN para los dos)
+   --------------------------------------------------------------------------
+   El servidor revisa el PIN y lleva la cuenta de los fallos (5 → esperar
+   15 min; 15 → bloqueada). Al entrar, el PIN queda guardado CIFRADO en este
+   dispositivo para el bloqueo automático (así se abre aunque no haya señal).
    ========================================================================== */
 function errorEntrada(texto) {
   $('#error-entrada').textContent = texto;
@@ -412,55 +416,89 @@ function mostrarFaltaConexion() {
   mostrarPantalla('conexion');
 }
 
-function mostrarEntrada() {
-  errorEntrada('');
+function mostrarEntrada(mensaje = '') {
+  errorEntrada(mensaje);
   $('#caja-demo').hidden = !MODO_DEMO;
-  $('#formulario-entrada').hidden = MODO_DEMO;
+  $('#usuario').value = local.leer('ultimo-usuario', '') || $('#usuario').value;
+  $('#pin-entrada').value = '';
   mostrarPantalla('entrada');
+  setTimeout(() => ($('#usuario').value ? $('#pin-entrada') : $('#usuario')).focus(), 60);
+}
+
+const claveVersionPin = (id) => `pin-version:${id}`;
+
+/** Entra con usuario + PIN (formulario o botones rápidos del demo). */
+async function ingresar(usuario, pinEscrito) {
+  const boton = $('#boton-entrar');
+  if (boton.disabled) return;
+  if (!/^[a-zA-Z0-9._-]{2,30}$/.test(usuario)) return errorEntrada('Escribe tu usuario.');
+  if (!/^[0-9]{4}$/.test(pinEscrito)) return errorEntrada('El PIN son 4 números.');
+  boton.disabled = true;
+  boton.textContent = 'Entrando…';
+  errorEntrada('');
+  try {
+    const { usuario: cuenta, version } = await backend.entrar(usuario.toLowerCase(), pinEscrito);
+    // El mismo PIN abre el bloqueo automático de este dispositivo
+    await guardarPin(cuenta.id, pinEscrito);
+    local.guardar(claveVersionPin(cuenta.id), version);
+    local.guardar('ultimo-usuario', usuario.toLowerCase());
+    $('#pin-entrada').value = '';
+    await entrarConUsuario(cuenta, { recienEntrado: true });
+  } catch (error) {
+    $('#pin-entrada').value = '';
+    errorEntrada(error?.message || 'No se pudo entrar.');
+    vibrar([40, 30, 40]);
+    $('#pin-entrada').focus();
+  } finally {
+    boton.disabled = false;
+    boton.textContent = 'Entrar';
+  }
 }
 
 function enlazarEntrada() {
-  $('#formulario-entrada').addEventListener('submit', async (e) => {
+  const campoPin = $('#pin-entrada');
+  $('#formulario-entrada').addEventListener('submit', (e) => {
     e.preventDefault();
-    const correo = $('#correo').value.trim();
-    const clave = $('#clave').value;
-    if (!correo || !clave) return errorEntrada('Escribe tu correo y tu contraseña.');
-    const boton = $('#boton-entrar');
-    boton.disabled = true;
-    boton.textContent = 'Entrando…';
-    errorEntrada('');
-    try {
-      const usuario = await backend.entrar(correo, clave);
-      $('#clave').value = '';
-      await entrarConUsuario(usuario, { recienEntrado: true });
-    } catch (error) {
-      errorEntrada(error?.message || 'No se pudo entrar.');
-    } finally {
-      boton.disabled = false;
-      boton.textContent = 'Entrar';
+    ingresar($('#usuario').value.trim(), campoPin.value.trim());
+  });
+  // Solo números; con el 4.º número entra solo (como el desbloqueo del celular)
+  campoPin.addEventListener('input', () => {
+    const limpio = campoPin.value.replace(/\D/g, '').slice(0, 4);
+    if (campoPin.value !== limpio) campoPin.value = limpio;
+    if (limpio.length === 4 && $('#usuario').value.trim()) $('#formulario-entrada').requestSubmit();
+  });
+  $('#usuario').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !campoPin.value) {
+      e.preventDefault();
+      campoPin.focus();
     }
   });
 
-  $('#caja-demo').addEventListener('click', async (e) => {
+  // Botones rápidos de la vista previa: entran con el PIN de ejemplo
+  $('#caja-demo').addEventListener('click', (e) => {
     const boton = e.target.closest('[data-demo]');
     if (!boton) return;
-    boton.disabled = true;
-    const usuario = await backend.entrarComo(boton.dataset.demo);
-    boton.disabled = false;
-    await entrarConUsuario(usuario, { recienEntrado: true });
+    $('#usuario').value = boton.dataset.demo;
+    ingresar(boton.dataset.demo, backend.pinDemo());
   });
 
   $('#ver-clave').addEventListener('click', () => {
-    const campo = $('#clave');
-    const ver = campo.type === 'password';
-    campo.type = ver ? 'text' : 'password';
+    const ver = campoPin.type === 'password';
+    campoPin.type = ver ? 'text' : 'password';
     const boton = $('#ver-clave');
     boton.innerHTML = icono(ver ? 'ojoOff' : 'ojo');
-    boton.setAttribute('aria-label', ver ? 'Ocultar contraseña' : 'Mostrar contraseña');
+    boton.setAttribute('aria-label', ver ? 'Ocultar PIN' : 'Mostrar PIN');
   });
 }
 
 async function entrarConUsuario(usuario, { recienEntrado = false } = {}) {
+  // Sesión de una versión anterior (sin PIN guardado aquí): que entre con usuario + PIN
+  if (!tienePin(usuario.id)) {
+    await backend.salir();
+    mostrarEntrada();
+    return;
+  }
+
   ctx.yo = usuario.id;
   ctx.correo = usuario.email || '';
 
@@ -478,12 +516,11 @@ async function entrarConUsuario(usuario, { recienEntrado = false } = {}) {
   }
 
   if (!ctx.perfiles.has(ctx.yo) && !sinRed) {
-    errorEntrada(
-      'Tu cuenta entró, pero no tiene perfil en la base de datos. Ejecuta el archivo supabase/01_estructura.sql (paso 2 de la guía) y vuelve a entrar.',
-    );
     await backend.salir();
     ctx.yo = null;
-    mostrarEntrada();
+    mostrarEntrada(
+      'Tu cuenta entró, pero no tiene perfil en la base de datos. Ejecuta el archivo supabase/01_estructura.sql (paso 2 de la guía) y vuelve a entrar.',
+    );
     return;
   }
 
@@ -491,13 +528,12 @@ async function entrarConUsuario(usuario, { recienEntrado = false } = {}) {
   chat.abrirChat();
   aplicarFondo(local.leer('fondo', 'corazones'));
 
-  if (!tienePin(ctx.yo)) mostrarPin('nombre');
-  else if (recienEntrado) desbloquear();
-  else mostrarPin('desbloquear');
+  if (recienEntrado) desbloquear();
+  else mostrarPin();
 }
 
-/** Sale sin preguntar (PIN olvidado o demasiados intentos). */
-async function forzarSalida() {
+/** Sale sin preguntar (PIN olvidado, demasiados intentos o PIN cambiado). */
+async function forzarSalida(mensaje = '') {
   const yo = ctx.yo;
   cerrarTodasLasCapas();
   chat.cerrarChat();
@@ -507,19 +543,20 @@ async function forzarSalida() {
   await backend.salir();
   if (yo) {
     borrarPin(yo);
+    local.borrar(claveVersionPin(yo));
     await Promise.all([kv.borrar(`cache:${yo}`), kv.borrar(`perfiles:${yo}`)]);
     local.borrar(`borrador:${yo}`);
   }
   ctx.yo = null;
   ctx.perfiles.clear();
   app.bloqueado = false;
-  mostrarEntrada();
+  mostrarEntrada(mensaje);
 }
 
 async function cerrarSesion() {
   const si = await confirmar({
     titulo: '¿Cerrar sesión?',
-    texto: 'Se borran de este dispositivo los mensajes guardados y el PIN. En la nube todo sigue a salvo.',
+    texto: 'Se borran de este dispositivo los mensajes guardados. En la nube todo sigue a salvo; vuelves a entrar con tu usuario y el PIN.',
     aceptar: 'Cerrar sesión',
     peligro: true,
   });
@@ -532,42 +569,36 @@ async function cerrarSesion() {
   }
 }
 
-/* ==========================================================================
-   PIN
-   ========================================================================== */
-const pin = { modo: null, valor: '', primero: '', ocupado: false, cambiando: false };
+/**
+ * Si el PIN se cambió en el otro celular, este deja de abrir con el viejo:
+ * se pide entrar otra vez con el PIN nuevo.
+ */
+async function revisarVersionPin() {
+  if (!ctx.yo) return;
+  const version = await backend.versionPin();
+  const guardada = local.leer(claveVersionPin(ctx.yo), null);
+  if (version === null || guardada === null || version === guardada) return;
+  await forzarSalida('El PIN se cambió. Entra con el PIN nuevo 🔑');
+}
 
-const TEXTOS_PIN = {
-  nombre: ['Hola 👋', '¿Cómo quieres que te vea tu pareja en el chat?'],
-  crear: ['Crea tu PIN', 'Cuatro números para abrir el chat en este dispositivo.'],
-  confirmar: ['Repite tu PIN', 'Para estar seguros de que lo recuerdas.'],
-  actual: ['Escribe tu PIN actual', 'Para poder cambiarlo.'],
-  desbloquear: ['', 'Escribe tu PIN para abrir el chat.'],
-};
+/* ==========================================================================
+   Bloqueo automático: el mismo PIN, revisado en este dispositivo
+   ========================================================================== */
+const pin = { valor: '', ocupado: false };
 
 function pintarPuntos() {
   [...$('#puntos-pin').children].forEach((punto, i) => punto.classList.toggle('lleno', i < pin.valor.length));
   $('#estado-pin-lector').textContent = `${pin.valor.length} de 4 números`;
 }
 
-function mostrarPin(modo) {
+function mostrarPin() {
   app.bloqueado = true;
-  pin.modo = modo;
   pin.valor = '';
   const yo = ctx.miPerfil();
   chat.pintarAvatar($('#avatar-pin'), yo);
-  const [titulo, texto] = TEXTOS_PIN[modo];
-  $('#titulo-pin').textContent = modo === 'desbloquear' ? `Hola, ${yo?.nombre || 'amor'}` : titulo;
-  $('#texto-pin').textContent = texto;
-  const esNombre = modo === 'nombre';
-  $('#paso-nombre').hidden = !esNombre;
-  $('#puntos-pin').hidden = esNombre;
-  $('#teclado').hidden = esNombre;
+  $('#titulo-pin').textContent = `Hola, ${yo?.nombre || 'amor'}`;
+  $('#texto-pin').textContent = 'Escribe el PIN para abrir el chat.';
   $('#error-pin').textContent = '';
-  const enlace = $('#olvide-pin');
-  enlace.hidden = esNombre || (modo === 'crear' && !pin.cambiando) || (modo === 'confirmar' && !pin.cambiando);
-  enlace.textContent = pin.cambiando ? 'Cancelar' : '¿Olvidaste tu PIN?';
-  if (esNombre) $('#nombre-propio').value = yo?.nombre || '';
   pintarPuntos();
   mostrarPantalla('pin');
   detenerLatido();
@@ -587,7 +618,7 @@ function errorPin(texto) {
 }
 
 function teclaPin(digito) {
-  if (pin.ocupado || pin.valor.length >= 4 || pin.modo === 'nombre') return;
+  if (pin.ocupado || pin.valor.length >= 4) return;
   pin.valor += digito;
   $('#error-pin').textContent = '';
   pintarPuntos();
@@ -602,38 +633,17 @@ function borrarDigito() {
 }
 
 async function completarPin() {
-  const valor = pin.valor;
   pin.ocupado = true;
   try {
-    if (pin.modo === 'crear') {
-      pin.primero = valor;
-      mostrarPin('confirmar');
-    } else if (pin.modo === 'confirmar') {
-      if (valor === pin.primero) {
-        await guardarPin(ctx.yo, valor);
-        pin.primero = '';
-        const cambiando = pin.cambiando;
-        pin.cambiando = false;
-        aviso(cambiando ? 'PIN cambiado 🔒' : 'PIN creado 🔒 Ya puedes chatear');
-        desbloquear();
-      } else {
-        pin.primero = '';
-        errorPin('No coinciden. Vamos otra vez.');
-        setTimeout(() => mostrarPin('crear'), 900);
-      }
+    const r = await verificarPin(ctx.yo, pin.valor);
+    if (r.ok) desbloquear();
+    else if (r.bloquear) {
+      errorPin('Demasiados intentos. Por seguridad, entra otra vez con tu usuario y el PIN.');
+      setTimeout(forzarSalida, 1600);
+    } else if (r.esperar) {
+      errorPin(`Demasiados intentos. Espera ${r.esperar} segundos.`);
     } else {
-      const r = await verificarPin(ctx.yo, valor);
-      if (r.ok) {
-        if (pin.modo === 'actual') mostrarPin('crear');
-        else desbloquear();
-      } else if (r.bloquear) {
-        errorPin('Demasiados intentos. Por seguridad, entra otra vez con tu contraseña.');
-        setTimeout(forzarSalida, 1600);
-      } else if (r.esperar) {
-        errorPin(`Demasiados intentos. Espera ${r.esperar} segundos.`);
-      } else {
-        errorPin(r.restantes <= 5 ? `PIN incorrecto. Te quedan ${r.restantes} intentos.` : 'PIN incorrecto.');
-      }
+      errorPin(r.restantes <= 5 ? `PIN incorrecto. Te quedan ${r.restantes} intentos.` : 'PIN incorrecto.');
     }
   } finally {
     pin.ocupado = false;
@@ -642,13 +652,13 @@ async function completarPin() {
 
 function desbloquear() {
   app.bloqueado = false;
-  pin.cambiando = false;
   mostrarPantalla('chat');
   iniciarLatido();
   backend.presencia(true);
   chat.alDesbloquear();
   mostrarTarjetaNotificaciones();
   revisarAccionInicial();
+  revisarVersionPin();
 }
 
 /** Atajo del ícono de la app (Android): mantener presionado → "Enviar un Te extraño". */
@@ -668,7 +678,7 @@ function revisarAccionInicial() {
 function bloquear() {
   if (!ctx.yo || !tienePin(ctx.yo)) return;
   cerrarTodasLasCapas();
-  mostrarPin('desbloquear');
+  mostrarPin();
 }
 
 function retardoBloqueoMs() {
@@ -687,46 +697,71 @@ function enlazarPin() {
     if (e.target.closest('[data-borrar]')) borrarDigito();
   });
   document.addEventListener('keydown', (e) => {
-    if (app.pantalla !== 'pin' || pin.modo === 'nombre') return;
+    if (app.pantalla !== 'pin') return;
     if (/^[0-9]$/.test(e.key)) teclaPin(e.key);
     else if (e.key === 'Backspace') borrarDigito();
   });
 
-  $('#continuar-nombre').addEventListener('click', async () => {
-    const nombre = $('#nombre-propio').value.trim().replace(/\s+/g, ' ').slice(0, 40);
-    if (!nombre) {
-      $('#error-pin').textContent = 'Escribe tu nombre o un apodo.';
-      return;
-    }
-    const yo = ctx.miPerfil();
-    if (yo && yo.nombre !== nombre) {
-      try {
-        await backend.actualizarMiPerfil({ nombre });
-        yo.nombre = nombre;
-      } catch {
-        aviso('No se pudo guardar el nombre ahora. Lo puedes cambiar luego en Ajustes.');
-      }
-    }
-    chat.actualizarCabecera();
-    mostrarPin('crear');
-  });
-  $('#nombre-propio').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') $('#continuar-nombre').click();
-  });
-
   $('#olvide-pin').addEventListener('click', async () => {
-    if (pin.cambiando) {
-      pin.cambiando = false;
-      pin.primero = '';
-      desbloquear();
-      return;
-    }
     const si = await confirmar({
-      titulo: '¿Olvidaste tu PIN?',
-      texto: 'Para crear uno nuevo, entra otra vez con tu correo y contraseña.',
-      aceptar: 'Entrar de nuevo',
+      titulo: '¿Olvidaste el PIN?',
+      texto:
+        'Es el mismo para los dos: pregúntaselo a tu amor 💜. Si ninguno lo recuerda, Jampier pone uno nuevo desde Supabase con el archivo supabase/03_pin.sql.',
+      aceptar: 'Salir de la cuenta',
+      cancelar: 'Volver',
     });
     if (si) forzarSalida();
+  });
+}
+
+/** Cambiar el PIN (es el mismo para los dos: cambia también para tu pareja). */
+function abrirCambioDePin() {
+  const campo = (id, texto) =>
+    `<label class="etiqueta" for="${id}">${texto}</label>
+     <div class="campo-texto">${icono('candado')}<input id="${id}" class="campo-pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" required></div>`;
+  const { capa, cerrar } = dialogo(
+    `<h2>Cambiar el PIN</h2>
+     <p>Es el mismo para los dos: <strong>también cambia para ${escaparHtml(ctx.pareja()?.nombre || 'tu amor')}</strong>. Cuéntale el nuevo 💜</p>
+     <form class="formulario-clave" novalidate>
+       ${campo('pin-actual', 'PIN actual')}
+       ${campo('pin-nuevo', 'PIN nuevo (4 números)')}
+       ${campo('pin-repetido', 'Repite el PIN nuevo')}
+       <p class="error-texto" role="alert"></p>
+       <div class="botones">
+         <button type="button" class="boton fantasma" data-cerrar>Cancelar</button>
+         <button type="submit" class="boton">Guardar</button>
+       </div>
+     </form>`,
+    'Cambiar el PIN',
+  );
+  const formulario = capa.querySelector('form');
+  const error = formulario.querySelector('.error-texto');
+  const boton = formulario.querySelector('[type="submit"]');
+  formulario.querySelectorAll('.campo-pin').forEach((c) =>
+    c.addEventListener('input', () => {
+      c.value = c.value.replace(/\D/g, '').slice(0, 4);
+    }),
+  );
+  setTimeout(() => formulario.querySelector('#pin-actual').focus(), 80);
+  formulario.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const actual = formulario.querySelector('#pin-actual').value;
+    const nuevo = formulario.querySelector('#pin-nuevo').value;
+    const repetido = formulario.querySelector('#pin-repetido').value;
+    if (!/^[0-9]{4}$/.test(actual) || !/^[0-9]{4}$/.test(nuevo)) return void (error.textContent = 'Cada PIN son 4 números.');
+    if (nuevo !== repetido) return void (error.textContent = 'Los dos PIN nuevos no coinciden.');
+    error.textContent = '';
+    boton.disabled = true;
+    try {
+      const version = await backend.cambiarPin(actual, nuevo);
+      await guardarPin(ctx.yo, nuevo);
+      local.guardar(claveVersionPin(ctx.yo), version);
+      cerrar();
+      aviso('PIN cambiado 🔒 Cuéntaselo a tu amor');
+    } catch (err) {
+      error.textContent = err?.message || 'No se pudo cambiar. Inténtalo de nuevo.';
+      boton.disabled = false;
+    }
   });
 }
 
@@ -796,7 +831,7 @@ function abrirAjustes() {
         <section class="seccion-ajustes">
           <h3>Seguridad</h3>
           <div class="grupo-ajustes">
-            <button type="button" class="opcion" data-accion="cambiar-pin">${icono('candado')}<span class="textos"><strong>Cambiar PIN</strong><span>Protege la app en este dispositivo.</span></span>${icono('derecha', 'flecha')}</button>
+            <button type="button" class="opcion" data-accion="cambiar-pin">${icono('candado')}<span class="textos"><strong>Cambiar PIN</strong><span>Es el mismo para los dos: cambia también para tu amor.</span></span>${icono('derecha', 'flecha')}</button>
             <div class="opcion bloque"><span class="textos"><strong>Bloquear automáticamente</strong><span>Tiempo fuera de la app antes de pedir el PIN.</span></span>
               <div class="segmentos" role="group" aria-label="Bloqueo automático" data-grupo="bloqueo">
                 ${segmento('0', 'candado', 'Al salir', bloqueo)}${segmento('60', 'reloj', '1 min', bloqueo)}${segmento('300', 'reloj', '5 min', bloqueo)}
@@ -816,8 +851,7 @@ function abrirAjustes() {
         <section class="seccion-ajustes">
           <h3>Cuenta</h3>
           <div class="grupo-ajustes">
-            <div class="opcion">${icono('correo')}<span class="textos"><strong>${escaparHtml(ctx.correo || 'Sin correo')}</strong><span>${pareja ? `Chat privado con ${escaparHtml(pareja.nombre)}` : 'Chat privado'}</span></span></div>
-            <button type="button" class="opcion" data-accion="cambiar-clave">${icono('llave')}<span class="textos"><strong>Cambiar contraseña</strong><span>Pon una que solo tú sepas.</span></span>${icono('derecha', 'flecha')}</button>
+            <div class="opcion">${icono('usuario')}<span class="textos"><strong>@${escaparHtml(yo?.usuario || 'sin usuario')}</strong><span>${pareja ? `Chat privado con ${escaparHtml(pareja.nombre)}` : 'Chat privado'}</span></span></div>
             <button type="button" class="opcion peligro" data-accion="salir">${icono('salir')}<span class="textos"><strong>Cerrar sesión</strong><span>Borra los mensajes guardados en este dispositivo.</span></span></button>
           </div>
         </section>
@@ -904,59 +938,12 @@ function abrirAjustes() {
     }
     const accion = e.target.closest('[data-accion]')?.dataset.accion;
     if (accion === 'foto') $('#selector-avatar').click();
-    else if (accion === 'cambiar-pin') {
-      cerrar();
-      setTimeout(() => {
-        pin.cambiando = true;
-        mostrarPin('actual');
-      }, 60);
-    } else if (accion === 'bloquear') {
+    else if (accion === 'cambiar-pin') abrirCambioDePin();
+    else if (accion === 'bloquear') {
       cerrar();
       setTimeout(bloquear, 60);
     } else if (accion === 'instalar') instalar();
-    else if (accion === 'cambiar-clave') abrirCambioDeClave();
     else if (accion === 'salir') cerrarSesion();
-  });
-}
-
-/** Cambiar la contraseña (cada uno pone la suya: ni la pareja ni quien creó la cuenta la sabrá). */
-function abrirCambioDeClave() {
-  const { capa, cerrar } = dialogo(
-    `<h2>Cambiar contraseña</h2>
-     <p>Mínimo 8 caracteres. Sirve para entrar desde cualquier dispositivo.</p>
-     <form class="formulario-clave" novalidate>
-       <label class="etiqueta" for="clave-nueva">Contraseña nueva</label>
-       <div class="campo-texto">${icono('llave')}<input id="clave-nueva" type="password" autocomplete="new-password" maxlength="72" required></div>
-       <label class="etiqueta" for="clave-repetida">Repítela</label>
-       <div class="campo-texto">${icono('llave')}<input id="clave-repetida" type="password" autocomplete="new-password" maxlength="72" required></div>
-       <p class="error-texto" role="alert"></p>
-       <div class="botones">
-         <button type="button" class="boton fantasma" data-cerrar>Cancelar</button>
-         <button type="submit" class="boton">Guardar</button>
-       </div>
-     </form>`,
-    'Cambiar contraseña',
-  );
-  const formulario = capa.querySelector('form');
-  const error = formulario.querySelector('.error-texto');
-  const boton = formulario.querySelector('[type="submit"]');
-  setTimeout(() => formulario.querySelector('#clave-nueva').focus(), 80);
-  formulario.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const nueva = formulario.querySelector('#clave-nueva').value;
-    const repetida = formulario.querySelector('#clave-repetida').value;
-    if (nueva.length < 8) return void (error.textContent = 'Usa al menos 8 caracteres.');
-    if (nueva !== repetida) return void (error.textContent = 'Las dos no coinciden. Escríbelas de nuevo.');
-    error.textContent = '';
-    boton.disabled = true;
-    try {
-      await backend.cambiarClave(nueva);
-      cerrar();
-      aviso(MODO_DEMO ? 'Así se cambia (en la vista previa no se guarda) 🔑' : 'Contraseña cambiada 🔑');
-    } catch (err) {
-      error.textContent = err?.message || 'No se pudo cambiar. Inténtalo de nuevo.';
-      boton.disabled = false;
-    }
   });
 }
 
@@ -1021,6 +1008,7 @@ function alMostrar() {
   if (!app.bloqueado) {
     iniciarLatido();
     backend.presencia(true);
+    revisarVersionPin();
   }
   chat.alVolver();
 }
@@ -1069,8 +1057,7 @@ async function arrancar() {
     usuario = await backend.iniciar();
   } catch (error) {
     console.error('No se pudo iniciar la conexión:', error);
-    mostrarEntrada();
-    errorEntrada(
+    mostrarEntrada(
       /supabaseUrl|Invalid|URL/i.test(String(error?.message))
         ? 'La configuración de Supabase no es válida. Revisa SUPABASE_URL y SUPABASE_KEY en js/config.js.'
         : 'No se pudo conectar. Revisa tu internet y recarga la página.',

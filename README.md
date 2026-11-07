@@ -1,6 +1,6 @@
 # Messenger Estrellita y Jampier ❤️
 
-Un chat privado solo para ustedes dos: mensajes al instante, fotos, notas de voz, "Te extraño", notificaciones y PIN. Es una web (HTML, CSS y JS) que se instala en el celular como una app, en Android, iPhone y computador.
+Un chat privado solo para ustedes dos: mensajes al instante, fotos, notas de voz, "Te extraño" y notificaciones. Cada uno entra con **su usuario** (`jampier` o `estrellita`) y **el mismo PIN de 4 números**. Es una web (HTML, CSS y JS) que se instala en el celular como una app, en Android, iPhone y computador.
 
 Todo funciona con planes **gratis**: Supabase (la base de datos y el tiempo real) y Cloudflare Pages (la página, en una dirección `.pages.dev`).
 
@@ -15,14 +15,18 @@ Todo funciona con planes **gratis**: Supabase (la base de datos y el tiempo real
 | `web/` | **La app.** Esta carpeta (y solo esta) es la que publica Cloudflare. |
 | `web/js/config.js` | ✏️ El único archivo que tienes que editar: aquí van tus datos de Supabase. |
 | `supabase/01_estructura.sql` | Crea la base de datos y todas las reglas de seguridad. |
-| `supabase/02_nueva_contrasena.sql` | Plantilla por si alguno olvida su contraseña. |
+| `supabase/03_pin.sql` | ✏️ Crea el PIN de los dos (y desbloquea si hubo muchos intentos fallidos). |
+| `supabase/02_nueva_contrasena.sql` | Plantilla de emergencia para la contraseña interna de una cuenta (casi nunca se usa). |
+| `supabase/functions/entrar-con-pin/index.ts` | La función que revisa el usuario y el PIN para entrar. |
 | `supabase/functions/enviar-push/index.ts` | La función que manda las notificaciones. |
 | `herramientas/generar-claves-vapid.html` | Crea las claves de las notificaciones (se abre con doble clic). |
 | `despertador/worker.js` | Evita que Supabase "duerma" el proyecto si pasan una semana sin escribirse. |
 | `desarrollo/` | Pruebas automáticas (no se publican en la web). |
 | `wrangler.toml` | Le dice a Cloudflare que publique solo la carpeta `web`. No hay que tocarlo. |
 
-> 💡 **¿Por qué al abrir la página sale "Casi listo"?** Porque la app todavía no tiene los datos de Supabase (pasos 1 a 4). Apenas los pegues en `web/js/config.js`, aparece la pantalla para entrar con correo y contraseña y los mensajes van y vienen de verdad entre los dos celulares. No hay respuestas automáticas: lo que uno escribe le llega al otro.
+> 💡 **¿Por qué al abrir la página sale "Casi listo"?** Porque la app todavía no tiene los datos de Supabase (pasos 1 a 4). Apenas los pegues en `web/js/config.js`, aparece la pantalla para entrar con usuario y PIN, y los mensajes van y vienen de verdad entre los dos celulares. No hay respuestas automáticas: lo que uno escribe le llega al otro.
+
+> 🖥️ **Verla en tu computador antes de publicar:** en la carpeta `desarrollo` corre `npm install` (una sola vez) y luego `npm run ver`, y abre **http://localhost:8080**. Sin Supabase entra en modo vista previa: usuario `jampier` o `estrellita` y PIN `1234` (ese PIN solo existe en la vista previa).
 
 ---
 
@@ -44,16 +48,29 @@ Todo funciona con planes **gratis**: Supabase (la base de datos y el tiempo real
 3. **Run**. Si Supabase pregunta si quieres ejecutar una operación "destructiva", confirma: es normal (el archivo limpia reglas viejas antes de crearlas).
 4. Abajo debe aparecer **Listo ✅**.
 
-## Paso 3 · Crear las 2 cuentas y cerrar el registro
+## Paso 3 · Crear las 2 cuentas, el PIN y cerrar el registro
+
+Cada cuenta necesita un correo por dentro, pero **nunca se usa para entrar** ni se envían correos: sirve para sacar el **usuario**. Lo más fácil es usar tu Gmail con un `+`:
+
+| Para | Correo de la cuenta | Usuario para entrar |
+|---|---|---|
+| Ti | `tucorreo+jampier@gmail.com` | `jampier` |
+| Estrellita | `tucorreo+estrellita@gmail.com` | `estrellita` |
+
+(El usuario es lo que va después del `+`. Si usas un correo sin `+`, el usuario es lo que va antes de la `@`.)
 
 1. **Authentication** → **Users** → **Add user** → **Create new user**.
-2. Escribe tu correo y una contraseña, marca **Auto Confirm User** y toca **Create user**.
-3. Repite con el correo de Estrellita. Ponle una contraseña temporal: **ella la cambia después desde la app** (Ajustes → Cuenta → Cambiar contraseña) para que solo ella la sepa.
+2. Escribe el primer correo, en **Password** pon cualquier clave larga (no se usa nunca; no hace falta recordarla), marca **Auto Confirm User** y toca **Create user**.
+3. Repite con el correo de Estrellita.
 4. Cierra el registro para siempre: **Authentication** → **Sign In / Providers** → apaga **Allow new users to sign up** → **Save changes**.
+5. **Crea el PIN de los dos:** **SQL Editor** → **New query** → pega `supabase/03_pin.sql` → cambia el `0000` por su PIN → **Run**. Debe salir **PIN guardado ✅**.
+   - Exactamente 4 números. No se aceptan los fáciles de adivinar (1234, 0000, 1111, 2580…).
 
-✅ Comprueba: **Table Editor** → tabla `perfiles` → deben verse 2 filas.
+✅ Comprueba: **Table Editor** → tabla `perfiles` → 2 filas, con la columna `usuario` en `jampier` y `estrellita`.
 
 > Aunque alguien intentara crear una tercera cuenta, la base de datos la rechaza ("Database error saving new user"). Es la protección funcionando.
+
+> 🔐 **Cómo se protege un PIN de 4 números:** lo revisa solo el servidor. 5 fallos seguidos → hay que esperar 15 minutos; 15 fallos → la cuenta queda bloqueada hasta que la desbloquees con `supabase/03_pin.sql`. Así nadie puede probar las 10.000 combinaciones. Los celulares que ya estaban adentro siguen funcionando aunque haya un bloqueo.
 
 ## Paso 4 · Conectar la app con Supabase
 
@@ -81,14 +98,21 @@ SUPABASE_KEY: 'sb_publishable_xxxxxxxxxxxxxxxx',
 
 > Genera las claves **una sola vez** y guárdalas. La privada nunca va en la web.
 
-## Paso 6 · Publicar la función de notificaciones
+## Paso 6 · Publicar las 2 funciones (entrar y notificaciones)
+
+Se hace lo mismo dos veces, una por cada función:
+
+| Nombre exacto | Archivo que se pega |
+|---|---|
+| `entrar-con-pin` | `supabase/functions/entrar-con-pin/index.ts` |
+| `enviar-push` | `supabase/functions/enviar-push/index.ts` |
 
 1. Supabase → **Edge Functions** → **Deploy a new function** → **Via Editor**.
-2. Ponle de nombre exactamente: `enviar-push`
-3. Borra el código de ejemplo, pega **todo** `supabase/functions/enviar-push/index.ts` y toca **Deploy function**.
+2. Ponle el nombre exacto de la tabla.
+3. Borra el código de ejemplo, pega **todo** el archivo y toca **Deploy function**.
 4. Ya publicada, entra a la función y en sus ajustes (**Details**) **apaga "Verify JWT"** y guarda.
 
-> ¿Por qué apagarlo? La función ya comprueba la sesión por su cuenta (y solo deja avisar a quien envió el mensaje). Con las claves nuevas de Supabase, la verificación automática puede rechazar a usuarios válidos; así lo recomienda la propia documentación de Supabase.
+> ¿Por qué apagarlo? `entrar-con-pin` la usa alguien que todavía no ha entrado (viene justamente a entrar), y `enviar-push` ya comprueba la sesión por su cuenta. Con las claves nuevas de Supabase, la verificación automática puede rechazar a usuarios válidos; así lo recomienda la propia documentación de Supabase. Ninguna de las dos necesita secretos nuevos para entrar: Supabase ya les da la URL y las claves del servidor.
 
 ## Paso 7 · Publicar la app en Cloudflare Pages (conectada a GitHub)
 
@@ -109,7 +133,7 @@ Así, cada cambio que guardes en la rama `main` de GitHub se publica solo.
 
 4. **Save and Deploy**, espera 1 minuto y abre la dirección `.pages.dev`.
 
-✅ Comprueba: debe salir el logo y la pantalla para entrar con correo y contraseña (o "Casi listo" si aún no hiciste el paso 4).
+✅ Comprueba: debe salir el logo y la pantalla para entrar con usuario y PIN (o "Casi listo" si aún no hiciste el paso 4).
 
 > 🧭 **El archivo `wrangler.toml` ya se encarga de lo importante:** le dice a Cloudflare que publique solo la carpeta `web`. Por eso en el panel de Cloudflare el *Build output directory* aparece bloqueado: se cambia en ese archivo, no allá. Si algún día cambias el nombre del proyecto en Cloudflare, cambia también la línea `name` de `wrangler.toml`.
 >
@@ -142,12 +166,12 @@ Supabase gratis pausa el proyecto si pasan 7 días sin actividad. Si chatean a d
 **iPhone (Safari):**
 1. Abre la dirección `.pages.dev` en **Safari**.
 2. Botón **Compartir** (cuadrito con flecha) → **Agregar a pantalla de inicio** → deja activado **Abrir como app web** → **Agregar**.
-3. Abre la app **desde el ícono**, entra con tu correo, pon tu nombre y crea tu PIN.
+3. Abre la app **desde el ícono** y entra con tu usuario y el PIN.
 4. **Ajustes → Avisos en este dispositivo** → **Permitir**.
 
 **Android (Chrome):**
 1. Abre la dirección en **Chrome** → menú **⋮** → **Instalar app** (o *Agregar a la pantalla principal*).
-2. Abre la app, entra, crea tu PIN y activa los avisos en **Ajustes**.
+2. Abre la app, entra con tu usuario y el PIN, y activa los avisos en **Ajustes**.
 
 **Computador (Chrome o Edge):** el ícono de instalar aparece en la barra de direcciones.
 
@@ -160,7 +184,8 @@ Supabase gratis pausa el proyecto si pasan 7 días sin actividad. Si chatean a d
 - [ ] Que ella cierre la app: escríbele y le debe llegar la notificación.
 - [ ] Prueben una foto, una nota de voz y el botón 💌 **Te extraño**.
 - [ ] Pon el celular en modo avión y escribe: el mensaje queda con un relojito; quita el modo avión y se envía solo.
-- [ ] Estrellita cambia su contraseña: **Ajustes → Cuenta → Cambiar contraseña**.
+- [ ] Pongan un PIN que solo ustedes dos sepan desde **Ajustes → Seguridad → Cambiar PIN** (cambia para los dos).
+- [ ] Escribe un PIN equivocado a propósito: debe decir "Usuario o PIN incorrectos".
 
 ### Opcional · Blindaje extra del tiempo real
 
@@ -175,12 +200,12 @@ Cuando todo funcione: Supabase → **Realtime** → **Settings** → apaga **All
 - Fotos (se comprimen a WebP para que suban rápido y ocupen poco), notas de voz con onda y velocidad 1x / 1.5x / 2x.
 - Responder (deslizando el mensaje a la derecha), reaccionar, copiar, editar (15 min) y eliminar para los dos.
 - 💌 **Te extraño**: tu pareja recibe una pantalla especial con lluvia de corazones. En Android, dejando presionado el ícono aparece el atajo "Enviar un Te extraño".
-- PIN de 4 números, bloqueo automático y la pantalla se difumina en el selector de apps.
+- Entrar con usuario + PIN de 4 números (el mismo para los dos), bloqueo automático con ese PIN y la pantalla se difumina en el selector de apps.
 - Tema automático (claro: piel y lila; oscuro: negro y rojo suave) con botón para cambiarlo, y fondo con corazones, liso o con una foto suya.
 - Funciona sin internet: los mensajes se guardan y salen solos al volver la conexión.
 - Búsqueda en la conversación.
 
-**Detalles que elegí para ustedes** (si alguno no les gusta, se quita): lluvia de corazones cuando mandan solo un ❤️, doble toque para reaccionar con ❤️, emojis grandes cuando el mensaje es solo emojis, separadores de día, sonido suave dentro del chat, borrador guardado, numerito de no leídos en el ícono, aviso de versión nueva, notificaciones **discretas** por defecto (dicen "E ❤ J · Tienes un mensaje nuevo 💌"; cada uno puede activar que se vea el texto en Ajustes), cambio de contraseña y protección contra borrado accidental de la conversación.
+**Detalles que elegí para ustedes** (si alguno no les gusta, se quita): lluvia de corazones cuando mandan solo un ❤️, doble toque para reaccionar con ❤️, emojis grandes cuando el mensaje es solo emojis, separadores de día, sonido suave dentro del chat, borrador guardado, numerito de no leídos en el ícono, aviso de versión nueva, notificaciones **discretas** por defecto (dicen "E ❤ J · Tienes un mensaje nuevo 💌"; cada uno puede activar que se vea el texto en Ajustes), cambio de PIN desde la app y protección contra borrado accidental de la conversación.
 
 ---
 
@@ -190,7 +215,8 @@ Cuando todo funcione: Supabase → **Realtime** → **Settings** → apaga **All
 - Solo pueden existir 2 cuentas y el registro está cerrado.
 - Cada petición pasa por reglas de seguridad (RLS) probadas: nadie sin sesión ve nada, nadie puede escribir a nombre del otro, ni marcar "leído" a mano, ni tocar archivos ajenos.
 - Fotos y audios en un depósito privado: se ven con enlaces temporales que vencen en 6 horas.
-- El PIN protege la app en cada dispositivo; 5 intentos fallidos → espera; 10 → cierra la sesión.
+- El PIN lo revisa el servidor y se guarda cifrado (bcrypt): 5 fallos seguidos → esperar 15 minutos; 15 → cuenta bloqueada. No hay PINs fáciles (1234, 0000…).
+- En cada celular, el bloqueo automático pide el mismo PIN (guardado cifrado); 10 fallos → cierra la sesión. Si el PIN se cambia en un celular, el otro pide el nuevo.
 - Si alguien intenta borrar una cuenta que tiene mensajes, Supabase lo impide: la conversación no se pierde por un clic equivocado.
 
 **No es:** cifrado de extremo a extremo como WhatsApp o Signal. Quien entre a tu cuenta de Supabase podría ver la base de datos. Por eso:
@@ -221,11 +247,19 @@ Cloudflare Pages: gratis, sin límite de visitas. Para ver el consumo: Supabase 
 
 **Sale el aviso rojo "Esa clave no va aquí"** → en `web/js/config.js` pegaste la *secret key* o la *service_role*. Pon la *publishable key* y, por seguridad, crea una secret nueva en Supabase (**Project Settings → API Keys**).
 
-**"Correo o contraseña incorrectos"** → revisa en **Authentication → Users** que la cuenta exista y esté confirmada. Si la contraseña se olvidó, usa `supabase/02_nueva_contrasena.sql` (cambia el correo y la contraseña, y **Run**).
+**"Usuario o PIN incorrectos"** → revisa el usuario en **Table Editor → perfiles → usuario** (es lo que va después del `+` del correo). El PIN es el que pusiste en `supabase/03_pin.sql` o en Ajustes.
+
+**"Demasiados intentos. Espera…"** → hubo 5 fallos seguidos: espera los minutos que dice.
+
+**"Cuenta bloqueada por seguridad"** → hubo 15 fallos. Desbloquéala: corre `supabase/03_pin.sql` (eso pone el PIN y desbloquea) o solo la línea `select privado.desbloquear();` que trae el archivo.
+
+**"Todavía no se ha creado el PIN"** → falta el punto 5 del paso 3.
+
+**"Falta publicar la función «entrar-con-pin»"** → repite el paso 6 con esa función. Si dice que apagues **Verify JWT**, hazlo en los ajustes de la función.
 
 **"Tu cuenta entró, pero no tiene perfil"** → vuelve a ejecutar `supabase/01_estructura.sql` (es seguro repetirlo).
 
-**"Database error deleting user"** al borrar una cuenta → es la protección: tiene mensajes. Para arreglar un problema de acceso nunca borres la cuenta; cambia la contraseña con el archivo `02`.
+**"Database error deleting user"** al borrar una cuenta → es la protección: tiene mensajes. Para arreglar un problema de acceso nunca borres la cuenta: pon el PIN otra vez con `supabase/03_pin.sql`.
 
 **Los mensajes llegan, pero solo al abrir la app de nuevo** → revisa que el paso 2 haya terminado en "Listo ✅". Si apagaste *Allow public access*, vuelve a encenderlo y prueba.
 
@@ -239,7 +273,7 @@ Cloudflare Pages: gratis, sin límite de visitas. Para ver el consumo: Supabase 
    - Error 401 → apaga "Verify JWT" (paso 6).
 5. Si cambiaste las claves VAPID: en cada celular apaga y vuelve a encender los avisos en Ajustes.
 
-**Olvidé mi PIN** → en la pantalla del PIN toca **¿Olvidaste tu PIN?**: cierra la sesión en ese dispositivo y entras de nuevo con tu contraseña. Los mensajes siguen en la nube.
+**Olvidé el PIN** → es el mismo de los dos: pregúntaselo a tu amor 💜. Si ninguno lo recuerda, pon uno nuevo con `supabase/03_pin.sql`. Los mensajes siguen en la nube.
 
 **La app no muestra los cambios que subí** → cambia `VERSION` en `web/sw.js` y en `web/js/config.js` antes de subir; luego en el celular toca **Actualizar** en el aviso "Hay una versión nueva de la app ✨".
 

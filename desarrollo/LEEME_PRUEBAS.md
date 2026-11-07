@@ -1,62 +1,44 @@
 # Pruebas automáticas — Messenger Estrellita y Jampier ❤️
 
-Esta carpeta es solo para desarrollo: **no se sube a Cloudflare ni a Supabase**. Sirve para comprobar, antes de publicar un cambio, que la seguridad, las notificaciones y la app siguen funcionando.
+Esta carpeta es solo para desarrollo: **no se publica en Cloudflare ni se sube a Supabase**. Sirve para comprobar, antes de publicar un cambio, que la seguridad, el ingreso con PIN, las notificaciones y la app siguen funcionando.
 
-Requisitos: Node 20+, Python 3.11+ y (para la base de datos) PostgreSQL 16.
+Solo hace falta **Node 20 o más nuevo**. Funciona igual en Windows, Mac y Linux:
+
+- La base de datos se prueba con **PGlite** (un PostgreSQL de verdad que corre dentro de Node): no hay que instalar PostgreSQL.
+- El navegador es **Microsoft Edge** (viene con Windows). Si no está, se usa Chrome con `CHROME=ruta`, o el Chromium de Playwright (`npx playwright install chromium`).
 
 ```bash
 cd desarrollo
-npm install
-pip install "psycopg[binary]" bcrypt playwright
+npm install        # una sola vez
+npm test           # corre TODAS las pruebas (unos 3 minutos)
 ```
 
-## 1. Base de datos y seguridad (86 pruebas)
-
-Usa un PostgreSQL **de pruebas** (el script crea y borra la base `prueba_eyj` y los roles `anon`, `authenticated`, `service_role`, `supabase_auth_admin`). Nunca lo apuntes a una base real.
+## Ver la app en el computador
 
 ```bash
-python3 prueba_sql.py <host o carpeta del socket> <puerto> supabase_simulado.sql \
-  ../supabase/01_estructura.sql ../supabase/02_nueva_contrasena.sql
+npm run ver        # abre http://localhost:8080
 ```
 
-`supabase_simulado.sql` imita lo que Supabase ya trae (esquemas `auth`, `storage`, `realtime`, roles y `auth.uid()`).
+Sin datos de Supabase entra en modo vista previa: usuario `jampier` o `estrellita` y PIN `1234` (solo existe en la vista previa; el PIN real nunca puede ser 1234).
 
-## 2. Función de notificaciones
+## Cada prueba por separado
 
-```bash
-npm run prueba:funcion   # 34 pruebas en Node: descifra cada aviso con http_ece y verifica la firma VAPID
-npm run prueba:deno      # la función corriendo en Deno real contra un Supabase simulado
-```
+| Comando | Qué prueba |
+|---|---|
+| `npm run prueba:sql` | 136 pruebas de `01_estructura.sql`: reglas de seguridad (RLS), máximo 2 cuentas, mensajes, tiempo real, archivos, plantillas 02 y 03, y el **PIN**: cifrado, 5 fallos → esperar, 15 → bloqueo, cambio de PIN que también cuenta intentos. |
+| `npm run prueba:entrar` | La función `entrar-con-pin` empaquetada como en Supabase, con la librería real de Supabase y la base de datos real detrás. |
+| `npm run prueba:funcion` | La función `enviar-push`: descifra cada aviso con `http_ece` y verifica la firma VAPID (34 pruebas). |
+| `npm run prueba:ingreso` | En el navegador: entrar con usuario + PIN, bloqueo, cambiar PIN, PIN cambiado en el otro celular, la app **conectada** a un Supabase imitado (función + canje del pase), "Casi listo" y la clave secreta. |
+| `npm run prueba:app` | En el navegador: la app completa en modo demo (texto, respuesta, nota de voz, foto, "Te extraño", tema, ajustes, búsqueda, bloqueo) en celular y computador. |
+| `npm run prueba:sin-senal` | Con un servidor que imita a Cloudflare (`/index.html` → `/`): la app instalada abre sin internet. También acepta una dirección: `node prueba_sin_senal.mjs https://…pages.dev/?demo`. |
+| `npm run prueba:generador` | Abre `herramientas/generar-claves-vapid.html` y valida las claves con `web-push`. |
+| `npm run prueba:deno` | (Opcional) La función de avisos corriendo en Deno real. |
+| `npm run vista-previa` | Crea el HTML único de la vista previa (modo demo con todo incrustado). |
 
-## 3. La app en el navegador (modo demo)
+Las capturas de pantalla quedan en `desarrollo/capturas/`. Cada prueba termina diciendo **TODO OK** o lista lo que falló.
 
-```bash
-python3 -m http.server 8765 --bind 127.0.0.1 --directory ../web   # en otra terminal
-python3 prueba_app.py http://127.0.0.1:8765/ capturas ../web/img/demo/atardecer.webp
-python3 prueba_clave.py http://127.0.0.1:8765/ capturas
-python3 prueba_bloqueo.py http://127.0.0.1:8765/ capturas
-```
+## Archivos de apoyo
 
-Con `CHROME=/ruta/a/google-chrome` usa Chrome (recomendado: su micrófono falso graba notas de voz reales). Al final debe decir **SIN ERRORES EN CONSOLA** y deja capturas en `capturas/`.
-
-En `127.0.0.1` la app sin datos de Supabase entra sola en modo demo. Publicada (cualquier otro dominio) muestra "Casi listo"; esto lo revisa:
-
-```bash
-python3 prueba_conexion.py http://127.0.0.1:8765/ capturas   # 24 pruebas: "Casi listo", ?demo, login real y clave secreta
-```
-
-## 3b. Como queda en Cloudflare Pages (sin señal)
-
-Cloudflare redirige `/index.html` → `/`. Este servidor imita eso para probar que la app instalada abre sin internet:
-
-```bash
-node servidor_cloudflare.mjs ../web 8771            # en otra terminal
-node prueba_sin_senal.mjs http://127.0.0.1:8771/    # debe decir SIN SEÑAL: TODO OK
-```
-
-## 4. Generador de claves y vista previa
-
-```bash
-npm run prueba:generador   # abre herramientas/generar-claves-vapid.html y valida las claves con web-push
-npm run vista-previa       # crea el HTML único de la vista previa (modo demo con todo incrustado)
-```
+- `supabase_simulado.sql` — imita lo que Supabase ya trae (esquemas `auth`, `storage`, `realtime`, roles y `auth.uid()`).
+- `servidor_cloudflare.mjs` — sirve `web/` como lo hace Cloudflare Pages (redirecciones incluidas).
+- `apoyo_navegador.mjs` — abre el navegador, el servidor y lleva la cuenta de las pruebas.

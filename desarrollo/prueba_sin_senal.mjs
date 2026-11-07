@@ -8,42 +8,44 @@
 //    2. corta el internet,
 //    3. recarga: la app debe abrir desde lo guardado.
 //
-//  Uso (desde desarrollo/, con npm install hecho):
-//    node servidor_cloudflare.mjs ../web 8771      ← en otra terminal
-//    node prueba_sin_senal.mjs http://127.0.0.1:8771/
+//  Uso (desde desarrollo/): node prueba_sin_senal.mjs   (o: npm run prueba:sin-senal)
+//  Con una dirección, prueba esa en vez del servidor local:
+//    node prueba_sin_senal.mjs https://messenger-estrellita-jampier-18.pages.dev/?demo
 // ============================================================================
-import { chromium } from 'playwright';
+import { abrirNavegador, crearRevisor, levantarWeb, pantallasVisibles } from './apoyo_navegador.mjs';
 
-const url = process.argv[2] || 'http://127.0.0.1:8771/';
-const navegador = await chromium.launch(process.env.CHROME ? { executablePath: process.env.CHROME } : {});
-const contexto = await navegador.newContext();
-const pagina = await contexto.newPage();
-const errores = [];
-pagina.on('pageerror', (e) => errores.push(String(e)));
+const { ok, terminar } = crearRevisor();
+const web = process.argv[2] ? null : await levantarWeb();
+const url = process.argv[2] || web.url;
+const navegador = await abrirNavegador();
 
-await pagina.goto(url, { waitUntil: 'networkidle' });
-// Esperar a que el service worker esté activo y controlando la página
-await pagina.evaluate(async () => {
-  await navigator.serviceWorker.ready;
-  if (!navigator.serviceWorker.controller) {
-    await new Promise((r) => navigator.serviceWorker.addEventListener('controllerchange', r, { once: true }));
-  }
-});
-await pagina.waitForTimeout(800);
-
-await contexto.setOffline(true);
-let bien = false;
 try {
-  await pagina.reload({ waitUntil: 'load', timeout: 15000 });
-  const pantallas = await pagina.evaluate(() =>
-    [...document.querySelectorAll('section.pantalla')].filter((s) => !s.hidden).map((s) => s.id),
-  );
-  bien = pantallas.length > 0;
-  console.log(`  ${bien ? '✓' : '✗'} sin señal abre la app (pantallas: ${pantallas.join(', ') || 'ninguna'})`);
-} catch (error) {
-  console.log(`  ✗ sin señal NO abre la app: ${String(error.message).split('\n')[0]}`);
+  const contexto = await navegador.newContext();
+  const pagina = await contexto.newPage();
+  const errores = [];
+  pagina.on('pageerror', (e) => errores.push(String(e)));
+
+  await pagina.goto(url, { waitUntil: 'networkidle' });
+  // Esperar a que el service worker esté activo y controlando la página
+  await pagina.evaluate(async () => {
+    await navigator.serviceWorker.ready;
+    if (!navigator.serviceWorker.controller) {
+      await new Promise((r) => navigator.serviceWorker.addEventListener('controllerchange', r, { once: true }));
+    }
+  });
+  await pagina.waitForTimeout(800);
+
+  await contexto.setOffline(true);
+  try {
+    await pagina.reload({ waitUntil: 'load', timeout: 15000 });
+    const pantallas = await pantallasVisibles(pagina);
+    ok(pantallas.length > 0, `sin señal abre la app (pantallas: ${pantallas.join(', ') || 'ninguna'})`);
+  } catch (error) {
+    ok(false, `sin señal abre la app: ${String(error.message).split('\n')[0]}`);
+  }
+  ok(errores.length === 0, `sin errores ${errores.length ? JSON.stringify(errores.slice(0, 3)) : ''}`);
+} finally {
+  await navegador.close();
+  web?.cerrar();
 }
-if (errores.length) console.log('  errores:', errores.slice(0, 3));
-await navegador.close();
-console.log(bien && !errores.length ? 'SIN SEÑAL: TODO OK' : 'SIN SEÑAL: FALLÓ');
-process.exit(bien && !errores.length ? 0 : 1);
+terminar('SIN SEÑAL');

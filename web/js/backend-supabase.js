@@ -10,7 +10,7 @@
    ========================================================================== */
 import { CONFIG } from './config.js';
 import { kv } from './almacen.js';
-import { esErrorDeRed } from './utilidades.js';
+import { esErrorDeRed, textoRechazoPin } from './utilidades.js';
 
 const CLAVE_SESION = 'eyj-sesion';
 const TEMA_CANAL = 'pareja-eyj';
@@ -23,7 +23,7 @@ function revisar({ data, error }) {
 
 function traducirErrorAuth(error) {
   const m = String(error?.message || '').toLowerCase();
-  if (m.includes('invalid login') || m.includes('invalid credentials')) return 'Correo o contraseña incorrectos.';
+  if (m.includes('expired') || m.includes('invalid')) return 'El pase para entrar venció. Escribe el PIN otra vez.';
   if (m.includes('email not confirmed'))
     return 'Esta cuenta aún no está confirmada. En Supabase → Authentication → Users, créala marcando "Auto Confirm User".';
   if (m.includes('rate') || error?.status === 429) return 'Demasiados intentos seguidos. Espera un minuto y vuelve a intentar.';
@@ -93,26 +93,50 @@ export class BackendSupabase {
     return this.usuario;
   }
 
-  async entrar(correo, clave) {
-    const { data, error } = await this.sb.auth.signInWithPassword({ email: correo.trim(), password: clave });
-    if (error) throw new Error(traducirErrorAuth(error));
-    this.usuario = data.user;
-    this.token = data.session?.access_token ?? null;
-    return data.user;
+  /**
+   * Entra con usuario + PIN:
+   *  1. La función "entrar-con-pin" revisa el PIN en el servidor (con bloqueo
+   *     por intentos) y devuelve un pase de un solo uso.
+   *  2. Ese pase se cambia aquí por la sesión.
+   * @returns {Promise<{usuario: object, version: number}>}
+   */
+  async entrar(usuario, pin) {
+    const { data, error } = await this.sb.functions.invoke('entrar-con-pin', { body: { usuario, pin } });
+    if (error) {
+      const estado = error.context?.status;
+      if (estado === 404) throw new Error('Falta publicar la función «entrar-con-pin» en Supabase (paso 6 de la guía).');
+      if (estado === 401) throw new Error('En Supabase, apaga «Verify JWT» en la función «entrar-con-pin» (paso 6 de la guía).');
+      if (error.name === 'FunctionsFetchError' || esErrorDeRed(error)) throw new Error('Sin conexión. Revisa tu internet e inténtalo de nuevo.');
+      throw new Error('El servidor no respondió bien. Inténtalo de nuevo en un momento.');
+    }
+    if (!data?.ok || !data.token_hash) throw new Error(textoRechazoPin(data));
+
+    const { data: sesion, error: errorSesion } = await this.sb.auth.verifyOtp({ token_hash: data.token_hash, type: 'email' });
+    if (errorSesion || !sesion?.user) throw new Error(traducirErrorAuth(errorSesion));
+    this.usuario = sesion.user;
+    this.token = sesion.session?.access_token ?? null;
+    return { usuario: sesion.user, version: data.version ?? 1 };
   }
 
-  /** Cambia la contraseña de la cuenta con sesión abierta. */
-  async cambiarClave(nueva) {
-    const { error } = await this.sb.auth.updateUser({ password: nueva });
-    if (!error) return;
-    const codigo = error.code || '';
-    const texto = String(error.message || '').toLowerCase();
-    if (codigo === 'same_password' || texto.includes('different from the old')) throw new Error('Es igual a la anterior: escribe una nueva.');
-    if (codigo === 'weak_password' || texto.includes('weak')) throw new Error('Es muy débil: mezcla letras y números.');
-    if (codigo === 'reauthentication_needed' || texto.includes('reauthenticat'))
-      throw new Error('Por seguridad, cierra sesión, vuelve a entrar y cámbiala enseguida.');
-    if (esErrorDeRed(error)) throw new Error('Sin conexión. Revisa tu internet e inténtalo de nuevo.');
-    throw new Error(`No se pudo cambiar: ${error.message || 'error desconocido'}.`);
+  /** Cambia el PIN de los dos. Devuelve la versión nueva. */
+  async cambiarPin(actual, nuevo) {
+    const { data, error } = await this.sb.rpc('cambiar_pin', { p_actual: actual, p_nuevo: nuevo });
+    if (error) {
+      if (esErrorDeRed(error)) throw new Error('Sin conexión. Revisa tu internet e inténtalo de nuevo.');
+      throw new Error(error.message || 'No se pudo cambiar el PIN.');
+    }
+    if (!data?.ok) throw new Error(data?.motivo === 'datos' ? 'El PIN actual no es correcto.' : textoRechazoPin(data));
+    return data.version;
+  }
+
+  /** Versión del PIN en el servidor (null si no hay señal). */
+  async versionPin() {
+    try {
+      const { data, error } = await this.sb.rpc('version_pin');
+      return error ? null : (data ?? null);
+    } catch {
+      return null;
+    }
   }
 
   async salir() {
@@ -130,7 +154,7 @@ export class BackendSupabase {
 
   /* ---------- Perfiles ---------- */
   async cargarPerfiles() {
-    return revisar(await this.sb.from('perfiles').select('id, nombre, avatar_path, notif_con_texto, en_app, visto_en'));
+    return revisar(await this.sb.from('perfiles').select('id, usuario, nombre, avatar_path, notif_con_texto, en_app, visto_en'));
   }
 
   async actualizarMiPerfil(campos) {

@@ -27,7 +27,7 @@ export const CONFIG = {
 
   // Datos de la app
   NOMBRE_APP: 'Messenger Estrellita y Jampier',
-  VERSION: '1.0.1',
+  VERSION: '1.1.0',
 };
 
 /* --------------------------------------------------------------------------
