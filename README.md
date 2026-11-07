@@ -6,6 +6,8 @@ Todo funciona con planes **gratis**: Supabase (la base de datos y el tiempo real
 
 > Tiempo total la primera vez: unos 40 minutos, con calma. Haz los pasos en orden y no te saltes ninguno.
 
+> 📍 **Estado actual (7 de noviembre de 2026):** la app está publicada en Cloudflare y probada (257 pruebas automáticas). Muestra "Casi listo" porque **falta conectar Supabase**: pasos 1 a 6 de esta guía. Lo nuevo de cada versión está en [Novedades](#novedades).
+
 ---
 
 ## Qué hay en esta carpeta
@@ -279,6 +281,27 @@ Cloudflare Pages: gratis, sin límite de visitas. Para ver el consumo: Supabase 
 
 ---
 
+## Novedades
+
+**Versión 1.1.0 · 7 de noviembre de 2026 — Entrar con usuario + PIN**
+- Cada uno entra con su usuario (`jampier` o `estrellita`) y el mismo PIN de 4 números. Ya no hay correo ni contraseña en la app.
+- El PIN lo revisa el servidor y se guarda cifrado: 5 fallos seguidos → esperar 15 minutos; 15 → cuenta bloqueada hasta desbloquearla con `supabase/03_pin.sql`. No se aceptan PINs fáciles.
+- Nueva función de Supabase `entrar-con-pin` y nueva plantilla `supabase/03_pin.sql` (crear el PIN y desbloquear).
+- El bloqueo automático del celular usa el mismo PIN. **Ajustes → Cambiar PIN** lo cambia para los dos, y el otro celular pide el nuevo.
+- Se quitó "Cambiar contraseña" y el paso de crear un PIN aparte al entrar por primera vez.
+- Pruebas: todas en Node, corren en Windows sin instalar nada más (`npm test` en `desarrollo`). Se pueden ver los cambios en el computador con `npm run ver` (http://localhost:8080).
+
+**Versión 1.0.1 · 6 de noviembre de 2026 — La página ya se ve**
+- `wrangler.toml`: Cloudflare publica solo la carpeta `web` (antes salía en blanco con error 404 y se veían el README y los SQL).
+- Sin Supabase, la página muestra "Casi listo" en vez de la conversación de ejemplo con respuestas automáticas. El demo solo abre con el botón "Ver una vista previa".
+- La app instalada vuelve a abrir sin señal (arreglo del service worker para Cloudflare).
+- Si se pega por error la clave secreta de Supabase, la app se niega a usarla y muestra un aviso rojo.
+
+**Versión 1.0.0 · 6 de noviembre de 2026 — Primera versión**
+- Chat completo: mensajes al instante, fotos, notas de voz, "Te extraño", notificaciones, modo sin señal, tema claro/oscuro y búsqueda.
+
+---
+
 ## Ideas para la versión 2
 
 - 📞 Llamadas de voz y videollamadas entre los dos.
@@ -300,6 +323,9 @@ Cloudflare Pages: gratis, sin límite de visitas. Para ver el consumo: Supabase 
 - [Supabase · Crear funciones desde el panel](https://supabase.com/docs/guides/functions/quickstart-dashboard)
 - [Supabase · Pausa de proyectos gratis](https://supabase.com/docs/guides/platform/free-project-pausing)
 - [Supabase · Facturación y límites del plan gratis](https://supabase.com/docs/guides/platform/billing-on-supabase)
+- [Supabase · auth.admin.generateLink](https://supabase.com/docs/reference/javascript/auth-admin-generatelink)
+- [Supabase · auth.verifyOtp](https://supabase.com/docs/reference/javascript/auth-verifyotp)
+- [Supabase · Inicio sin contraseña (token_hash)](https://supabase.com/docs/guides/auth/auth-email-passwordless)
 - [Cloudflare Pages · Direct Upload](https://developers.cloudflare.com/pages/get-started/direct-upload/)
 - [Cloudflare Pages · Conectar con GitHub](https://developers.cloudflare.com/pages/get-started/git-integration/)
 - [Cloudflare Pages · Configuración de compilación](https://developers.cloudflare.com/pages/configuration/build-configuration/)
