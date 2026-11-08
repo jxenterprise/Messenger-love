@@ -6,7 +6,7 @@ Todo funciona con planes **gratis**: Supabase (la base de datos y el tiempo real
 
 > Tiempo total la primera vez: unos 40 minutos, con calma. Haz los pasos en orden y no te saltes ninguno.
 
-> 📍 **Estado actual (8 de noviembre de 2026):** la app está **conectada a Supabase** (proyecto `messenger-eyj`, São Paulo) y publicada en Cloudflare. Cuentas `jampier` y `estrellita` creadas, PIN puesto y las 2 funciones publicadas. Falta la prueba final entre los dos celulares (pasos 9 y 10). Lo nuevo de cada versión está en [Novedades](#novedades).
+> 📍 **Estado actual (domingo 8 de noviembre de 2026, 1:10 a. m., hora de Colombia):** la app está **conectada a Supabase** (proyecto `messenger-eyj`, São Paulo) y publicada en Cloudflare. Cuentas `jampier` y `estrellita` creadas, PIN puesto y las 2 funciones publicadas. Falta la prueba final entre los dos celulares (pasos 9 y 10). Lo nuevo de cada versión está en [Novedades](#novedades).
 
 ---
 
@@ -283,12 +283,12 @@ Cloudflare Pages: gratis, sin límite de visitas. Para ver el consumo: Supabase 
 
 ## Novedades
 
-**Versión 1.1.1 · 8 de noviembre de 2026 — Conectada a Supabase**
+**Versión 1.1.1 · 8 de noviembre de 2026, 1:08 a. m. — Conectada a Supabase**
 - `web/js/config.js` ya tiene la Project URL, la publishable key y la clave pública VAPID del proyecto `messenger-eyj` (todas públicas por diseño; las secretas solo están en Supabase).
 - Supabase configurado: base de datos (`01_estructura.sql`), cuentas `jampier` y `estrellita` con sus correos reales, registro cerrado, PIN creado, secretos VAPID y funciones `entrar-con-pin` y `enviar-push` con Verify JWT apagado.
 - Comprobado en el proyecto real: sin sesión no se ve nada (perfiles, mensajes ni la revisión del PIN), y la app conectada responde bien al entrar.
 
-**Versión 1.1.0 · 7 de noviembre de 2026 — Entrar con usuario + PIN**
+**Versión 1.1.0 · 7 de noviembre de 2026, 1:21 a. m. — Entrar con usuario + PIN**
 - Cada uno entra con su usuario (`jampier` o `estrellita`) y el mismo PIN de 4 números. Ya no hay correo ni contraseña en la app.
 - El PIN lo revisa el servidor y se guarda cifrado: 5 fallos seguidos → esperar 15 minutos; 15 → cuenta bloqueada hasta desbloquearla con `supabase/03_pin.sql`. No se aceptan PINs fáciles.
 - Nueva función de Supabase `entrar-con-pin` y nueva plantilla `supabase/03_pin.sql` (crear el PIN y desbloquear).
@@ -296,13 +296,13 @@ Cloudflare Pages: gratis, sin límite de visitas. Para ver el consumo: Supabase 
 - Se quitó "Cambiar contraseña" y el paso de crear un PIN aparte al entrar por primera vez.
 - Pruebas: todas en Node, corren en Windows sin instalar nada más (`npm test` en `desarrollo`). Se pueden ver los cambios en el computador con `npm run ver` (http://localhost:8080).
 
-**Versión 1.0.1 · 6 de noviembre de 2026 — La página ya se ve**
+**Versión 1.0.1 · 6 de noviembre de 2026, 12:13 p. m. — La página ya se ve**
 - `wrangler.toml`: Cloudflare publica solo la carpeta `web` (antes salía en blanco con error 404 y se veían el README y los SQL).
 - Sin Supabase, la página muestra "Casi listo" en vez de la conversación de ejemplo con respuestas automáticas. El demo solo abre con el botón "Ver una vista previa".
 - La app instalada vuelve a abrir sin señal (arreglo del service worker para Cloudflare).
 - Si se pega por error la clave secreta de Supabase, la app se niega a usarla y muestra un aviso rojo.
 
-**Versión 1.0.0 · 6 de noviembre de 2026 — Primera versión**
+**Versión 1.0.0 · 6 de noviembre de 2026, 11:15 a. m. — Primera versión**
 - Chat completo: mensajes al instante, fotos, notas de voz, "Te extraño", notificaciones, modo sin señal, tema claro/oscuro y búsqueda.
 
 ---

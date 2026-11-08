@@ -31,7 +31,17 @@ Chat privado (PWA) para exactamente **2 personas**: Jampier (JX, dueño del proy
 - El Python de JX (3.13) está dañado (falta `pickle`); instaló 3.15 (comando `py`). Ya no se usa Python en el proyecto.
 - JX no quiere un "bot": sin Supabase el sitio publicado muestra "Casi listo", nunca la pareja simulada (ver `FALTA_CONEXION` abajo).
 
+## Bitácora de sesiones (hora de Colombia, UTC-5)
+
+Agregar una entrada al final de cada sesión, ANTES de publicar.
+
+- **Vie 6 nov 2026, 11:15 a. m. → 12:15 p. m.** — JX subió el proyecto a GitHub y conectó Cloudflare Pages; la página daba 404. Diagnóstico: Cloudflare publicaba la raíz del repo. Arreglos: `wrangler.toml` (solo `web/`), pantalla "Casi listo" en vez del bot, service worker para abrir sin señal, aviso de clave secreta, `CLAUDE.md` escondido en `.claude/`. PR #1 fusionado → versión 1.0.1 publicada.
+- **Sáb 7 nov 2026, ~12:00 a. m. → 1:30 a. m.** — Carpeta local de JX (Windows) conectada a GitHub con git. Ingreso con usuario + mismo PIN de 4 números (SQL, función `entrar-con-pin`, app, `03_pin.sql`). Las pruebas pasaron a Node (PGlite + Edge): 257 en total. Python de JX dañado → instaló 3.15. Versión 1.1.0 publicada en `main`.
+- **Dom 8 nov 2026, ~12:30 a. m. → 1:10 a. m.** — Supabase configurado paso a paso con JX: proyecto `messenger-eyj`, SQL 01, cuentas con correos reales + usuarios puestos con SQL, registro cerrado, PIN, secretos VAPID, las 2 funciones (Verify JWT apagado, verificado con curl). App conectada (versión 1.1.1) y probada contra el proyecto real con un usuario inventado. La publicación quedó para que JX la autorice. **Siguiente:** que JX pruebe con el PIN real (2 ventanas en localhost:8080), instalar en los 2 celulares y activar avisos.
+
 ## Preferencias de JX (respetarlas siempre)
+
+- **Antes de publicar (push a GitHub), documentar TODO lo nuevo con fecha y hora:** Novedades y "Estado actual" del README, y la bitácora de arriba. Lo pidió explícitamente el 8 nov 2026.
 
 - Todo en español: interfaz, comentarios, nombres de variables y funciones.
 - Código comentado y fácil de seguir; zonas editables marcadas (✏️ en `web/js/config.js`).
