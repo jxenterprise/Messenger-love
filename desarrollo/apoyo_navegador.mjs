@@ -8,7 +8,7 @@
 // ============================================================================
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 export const aqui = (ruta) => fileURLToPath(new URL(ruta, import.meta.url));
@@ -34,8 +34,24 @@ export async function abrirNavegador(argumentos = []) {
   }
 }
 
-/** Contexto de celular (o de computador con escritorio: true). */
-export function nuevoContexto(navegador, { escritorio = false, oscuro = false } = {}) {
+/**
+ * config.js SIN los datos de Supabase. Las pruebas nunca tocan el proyecto
+ * real: usan el modo demo o un Supabase imitado.
+ */
+export function configSinSupabase() {
+  return readFileSync(aqui('../web/js/config.js'), 'utf8')
+    .replace(/SUPABASE_URL: '[^']*'/, "SUPABASE_URL: ''")
+    .replace(/SUPABASE_KEY: '[^']*'/, "SUPABASE_KEY: ''");
+}
+
+/** Contexto de celular (o de computador con escritorio: true), siempre sin el Supabase real. */
+export async function nuevoContexto(navegador, { escritorio = false, oscuro = false } = {}) {
+  const contexto = await crearContexto(navegador, { escritorio, oscuro });
+  await contexto.route('**/js/config.js', (r) => r.fulfill({ status: 200, contentType: 'application/javascript', body: configSinSupabase() }));
+  return contexto;
+}
+
+function crearContexto(navegador, { escritorio, oscuro }) {
   return navegador.newContext(
     escritorio
       ? { viewport: { width: 1280, height: 800 }, colorScheme: oscuro ? 'dark' : 'light', locale: 'es-CO', timezoneId: 'America/Bogota' }

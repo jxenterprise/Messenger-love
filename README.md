@@ -6,7 +6,7 @@ Todo funciona con planes **gratis**: Supabase (la base de datos y el tiempo real
 
 > Tiempo total la primera vez: unos 40 minutos, con calma. Haz los pasos en orden y no te saltes ninguno.
 
-> 📍 **Estado actual (7 de noviembre de 2026):** la app está publicada en Cloudflare y probada (257 pruebas automáticas). Muestra "Casi listo" porque **falta conectar Supabase**: pasos 1 a 6 de esta guía. Lo nuevo de cada versión está en [Novedades](#novedades).
+> 📍 **Estado actual (8 de noviembre de 2026):** la app está **conectada a Supabase** (proyecto `messenger-eyj`, São Paulo) y publicada en Cloudflare. Cuentas `jampier` y `estrellita` creadas, PIN puesto y las 2 funciones publicadas. Falta la prueba final entre los dos celulares (pasos 9 y 10). Lo nuevo de cada versión está en [Novedades](#novedades).
 
 ---
 
@@ -282,6 +282,11 @@ Cloudflare Pages: gratis, sin límite de visitas. Para ver el consumo: Supabase 
 ---
 
 ## Novedades
+
+**Versión 1.1.1 · 8 de noviembre de 2026 — Conectada a Supabase**
+- `web/js/config.js` ya tiene la Project URL, la publishable key y la clave pública VAPID del proyecto `messenger-eyj` (todas públicas por diseño; las secretas solo están en Supabase).
+- Supabase configurado: base de datos (`01_estructura.sql`), cuentas `jampier` y `estrellita` con sus correos reales, registro cerrado, PIN creado, secretos VAPID y funciones `entrar-con-pin` y `enviar-push` con Verify JWT apagado.
+- Comprobado en el proyecto real: sin sesión no se ve nada (perfiles, mensajes ni la revisión del PIN), y la app conectada responde bien al entrar.
 
 **Versión 1.1.0 · 7 de noviembre de 2026 — Entrar con usuario + PIN**
 - Cada uno entra con su usuario (`jampier` o `estrellita`) y el mismo PIN de 4 números. Ya no hay correo ni contraseña en la app.

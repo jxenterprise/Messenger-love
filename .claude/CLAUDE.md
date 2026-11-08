@@ -26,7 +26,8 @@ Chat privado (PWA) para exactamente **2 personas**: Jampier (JX, dueño del proy
 - PR #1 ya está en `main`: la dirección .pages.dev muestra la app ("Casi listo"). La versión 1.1.0 (usuario + PIN) se subió directo a `main` a pedido de JX.
 - El README tiene "Estado actual" arriba y una sección **Novedades** por versión: actualizarlas en cada entrega.
 - Ingreso con usuario + PIN hecho y probado (versión 1.1.0). La carpeta local de JX (Windows) está conectada a GitHub con git (`origin/main`).
-- **Pendiente de JX:** crear el proyecto Supabase siguiendo el README (pasos 1–6: SQL 01, 2 cuentas con correo+usuario, 03_pin.sql, las 2 funciones con Verify JWT apagado, claves VAPID) y pasar la Project URL + publishable key para ponerlas en `web/js/config.js`.
+- **8 nov 2026 — Supabase conectado (versión 1.1.1):** proyecto `messenger-eyj` (ref `kcxhaducunhulfuiipfe`, sa-east-1, org JX Enterprise, plan Free). Cuentas con correos reales (`jampierdev@gmail.com`, `estrellitaperez2628@gmail.com`); como el usuario sale del correo, se puso a mano con SQL: `usuario` = `jampier` / `estrellita`. Registro cerrado, PIN puesto (JX no lo compartió: no pedirlo), secretos VAPID, funciones publicadas con Verify JWT apagado (verificado: responden con nuestros mensajes). Sin sesión: perfiles/mensajes/verificar_acceso dan 401.
+- **Pendiente:** prueba real entre los dos (JX tiene el PIN), instalar en los celulares y activar avisos; despertador (paso 8) opcional.
 - El Python de JX (3.13) está dañado (falta `pickle`); instaló 3.15 (comando `py`). Ya no se usa Python en el proyecto.
 - JX no quiere un "bot": sin Supabase el sitio publicado muestra "Casi listo", nunca la pareja simulada (ver `FALTA_CONEXION` abajo).
 

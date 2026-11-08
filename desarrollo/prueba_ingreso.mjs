@@ -8,8 +8,7 @@
 //
 //  Uso (desde desarrollo/): node prueba_ingreso.mjs   (o: npm run prueba:ingreso)
 // ============================================================================
-import { readFileSync } from 'node:fs';
-import { abrirNavegador, aqui, carpetaCapturas, crearRevisor, levantarWeb, nuevoContexto, pantallasVisibles, vigilarConsola } from './apoyo_navegador.mjs';
+import { abrirNavegador, carpetaCapturas, configSinSupabase, crearRevisor, levantarWeb, nuevoContexto, pantallasVisibles, vigilarConsola } from './apoyo_navegador.mjs';
 
 const { ok, terminar } = crearRevisor();
 const capturas = carpetaCapturas();
@@ -135,7 +134,7 @@ try {
   const SB = 'https://abcdefghijkl.supabase.co';
   const A = '11111111-1111-4111-8111-111111111111';
   const B = '22222222-2222-4222-8222-222222222222';
-  const config = readFileSync(aqui('../web/js/config.js'), 'utf8')
+  const config = configSinSupabase()
     .replace("SUPABASE_URL: ''", `SUPABASE_URL: '${SB}'`)
     .replace("SUPABASE_KEY: ''", "SUPABASE_KEY: 'sb_publishable_prueba123'");
   const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');

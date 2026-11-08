@@ -11,23 +11,23 @@
 export const CONFIG = {
   // 1) URL del proyecto. Supabase → Project Settings → Data API → "Project URL"
   //    Ejemplo: 'https://abcdefghijkl.supabase.co'
-  SUPABASE_URL: '',
+  SUPABASE_URL: 'https://kcxhaducunhulfuiipfe.supabase.co',
 
   // 2) Clave PÚBLICA. Supabase → Project Settings → API Keys →
   //    "Publishable key" (empieza por sb_publishable_) o, si usas las
   //    antiguas, la "anon public". Es pública por diseño: lo que protege los
   //    datos son las reglas RLS del archivo supabase/01_estructura.sql.
   //    ⚠️ NUNCA pegues aquí la "secret key" ni la "service_role".
-  SUPABASE_KEY: '',
+  SUPABASE_KEY: 'sb_publishable_wNq5zmbzJ6opE_bm7qn3-w_cSW4Jc_p',
 
   // 3) Clave pública VAPID para las notificaciones push.
   //    Genérala con herramientas/generar-claves-vapid.html
   //    (la privada va SOLO en los secretos de Supabase, nunca aquí).
-  VAPID_PUBLIC_KEY: '',
+  VAPID_PUBLIC_KEY: 'BE_Jk18lHmCaWp9skthVK24Qx3-lWB8CF-STN_o5I2ZEZIfJRqE00_vuNhibx6onHTGWIItijDvnF8VKAa9o6D0',
 
   // Datos de la app
   NOMBRE_APP: 'Messenger Estrellita y Jampier',
-  VERSION: '1.1.0',
+  VERSION: '1.1.1',
 };
 
 /* --------------------------------------------------------------------------
