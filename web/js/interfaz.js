@@ -19,22 +19,31 @@ let usarHistorial = !window.__VISTA_PREVIA__;
  */
 export function abrirCapa(elemento, alCerrar) {
   raiz().appendChild(elemento);
-  const entrada = { elemento, alCerrar, conHistorial: false };
+  const entrada = { elemento, alCerrar, conHistorial: false, esperaHistorial: false };
   pila.push(entrada);
-  if (usarHistorial) {
-    try {
-      history.pushState({ capaEyj: pila.length }, '');
-      entrada.conHistorial = true;
-    } catch {
-      usarHistorial = false;
-    }
-  }
+  // Si una capa recién cerrada todavía está "volviendo atrás" en el historial
+  // (el navegador lo hace un instante después), se anota cuando termine.
+  // Si no, dos diálogos seguidos (p. ej. la doble confirmación) se cruzan y
+  // la página termina saliéndose de la app.
+  if (popsIgnorados > 0) entrada.esperaHistorial = true;
+  else anotarEnHistorial(entrada);
   return () => cerrarEntrada(entrada, true);
+}
+
+function anotarEnHistorial(entrada) {
+  if (!usarHistorial) return;
+  try {
+    history.pushState({ capaEyj: pila.length }, '');
+    entrada.conHistorial = true;
+  } catch {
+    usarHistorial = false;
+  }
 }
 
 function cerrarEntrada(entrada, desdeLaApp) {
   const i = pila.indexOf(entrada);
   if (i === -1) return;
+  entrada.esperaHistorial = false;
   pila.splice(i, 1);
   entrada.elemento.remove();
   entrada.alCerrar?.();
@@ -55,6 +64,15 @@ export function cerrarTodasLasCapas() {
 window.addEventListener('popstate', () => {
   if (popsIgnorados > 0) {
     popsIgnorados -= 1;
+    // Terminó de volver atrás: ahora sí se anotan las capas que se abrieron mientras tanto
+    if (popsIgnorados === 0) {
+      for (const e of pila) {
+        if (e.esperaHistorial) {
+          e.esperaHistorial = false;
+          anotarEnHistorial(e);
+        }
+      }
+    }
     return;
   }
   const ultima = pila[pila.length - 1];

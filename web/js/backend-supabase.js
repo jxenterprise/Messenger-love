@@ -154,7 +154,11 @@ export class BackendSupabase {
 
   /* ---------- Perfiles ---------- */
   async cargarPerfiles() {
-    return revisar(await this.sb.from('perfiles').select('id, usuario, nombre, avatar_path, notif_con_texto, en_app, visto_en'));
+    const columnas = 'id, usuario, nombre, avatar_path, notif_con_texto, en_app, visto_en';
+    const r = await this.sb.from('perfiles').select(`${columnas}, preferencias`);
+    // 42703 = columna inexistente: todavía no se ejecutó el SQL nuevo (v1.5). La app sigue funcionando sin guardar ajustes en la nube.
+    if (r.error?.code === '42703') return revisar(await this.sb.from('perfiles').select(columnas));
+    return revisar(r);
   }
 
   async actualizarMiPerfil(campos) {
@@ -279,6 +283,28 @@ export class BackendSupabase {
     if (ruta) await this.borrarMedia(ruta);
   }
 
+  /**
+   * Vacía el chat PARA LOS DOS: borra todos los mensajes y después sus fotos y
+   * notas de voz del depósito (las del otro también: ya nadie las usa).
+   */
+  async vaciarChat() {
+    const rutas = revisar(await this.sb.rpc('vaciar_chat')) || [];
+    for (let i = 0; i < rutas.length; i += 100) {
+      try {
+        await this.sb.storage.from('media').remove(rutas.slice(i, i + 100));
+      } catch {
+        /* si alguno falla, solo queda un archivo huérfano */
+      }
+    }
+    for (const ruta of rutas) this.cacheUrls.delete(ruta);
+  }
+
+  /** Cuándo y quién vació el chat por última vez ({vaciadoEn, vaciadoPor} o nulls). */
+  async estadoChat() {
+    const fila = revisar(await this.sb.from('chat_estado').select('vaciado_en, vaciado_por').maybeSingle());
+    return { vaciadoEn: fila?.vaciado_en ?? null, vaciadoPor: fila?.vaciado_por ?? null };
+  }
+
   async buscar(texto) {
     const patron = `%${texto.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
     return revisar(
@@ -336,6 +362,10 @@ export class BackendSupabase {
 
     canal.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensajes' }, (p) => this.cb.onMensaje?.(p.new));
     canal.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mensajes' }, (p) => this.cb.onMensaje?.(p.new));
+    // Si el otro vacía el chat, este celular se entera al instante
+    canal.on('postgres_changes', { event: '*', schema: 'public', table: 'chat_estado' }, (p) => {
+      if (p.new?.vaciado_en) this.cb.onChatVaciado?.(p.new.vaciado_en, p.new.vaciado_por);
+    });
     if (privado) {
       canal.on('presence', { event: 'sync' }, () => this.cb.onPresencia?.(Object.keys(canal.presenceState())));
       canal.on('broadcast', { event: 'escribiendo' }, ({ payload }) => this.cb.onEscribiendo?.(payload));

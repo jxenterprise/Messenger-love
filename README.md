@@ -6,7 +6,7 @@ Todo funciona con planes **gratis**: Supabase (la base de datos y el tiempo real
 
 > Tiempo total la primera vez: unos 40 minutos, con calma. Haz los pasos en orden y no te saltes ninguno.
 
-> 📍 **Estado actual (domingo 8 de noviembre de 2026, 2:05 a. m., hora de Colombia) · versión v1.4:** la app está **conectada a Supabase** (proyecto `messenger-eyj`, São Paulo) y publicada en Cloudflare. Para entrar: **"Soy Jampier" o "Soy Estrellita" + el PIN**. Revisada en sus dos celulares (Redmi Note 14 Pro+ y iPhone 12 Pro Max) y en 10 tamaños más. Falta instalarla en los dos celulares y activar los avisos (pasos 9 y 10). Lo nuevo de cada versión está en [Novedades](#novedades).
+> 📍 **Estado actual (domingo 8 de noviembre de 2026, 3:15 p. m., hora de Colombia) · versión v1.5:** la app está **conectada a Supabase** (proyecto `messenger-eyj`, São Paulo) y publicada en Cloudflare. Para entrar: **"Soy Jampier" o "Soy Estrellita" + el PIN**. Nuevo en v1.5: los ajustes y los avisos **ya no se reinician nunca** (quedan guardados en la base de datos), cámara para mandar fotos, **vaciar el chat** para los dos y el **despertador automático** en GitHub. ⚠️ Para que todo esto funcione hay que **volver a ejecutar `supabase/01_estructura.sql`** en el SQL Editor de Supabase (es seguro repetirlo). Falta instalarla en los dos celulares y activar los avisos (pasos 9 y 10). Lo nuevo de cada versión está en [Novedades](#novedades).
 
 ---
 
@@ -22,7 +22,8 @@ Todo funciona con planes **gratis**: Supabase (la base de datos y el tiempo real
 | `supabase/functions/entrar-con-pin/index.ts` | La función que revisa el usuario y el PIN para entrar. |
 | `supabase/functions/enviar-push/index.ts` | La función que manda las notificaciones. |
 | `herramientas/generar-claves-vapid.html` | Crea las claves de las notificaciones (se abre con doble clic). |
-| `despertador/worker.js` | Evita que Supabase "duerma" el proyecto si pasan una semana sin escribirse. |
+| `.github/workflows/despertador.yml` | El despertador automático: GitHub toca la base de datos 2 veces al día para que Supabase nunca "duerma" el proyecto. Ya está funcionando, no hay que hacer nada. |
+| `despertador/worker.js` | Otra forma del despertador (en Cloudflare), por si algún día no quieren usar GitHub. |
 | `desarrollo/` | Pruebas automáticas (no se publican en la web). |
 | `wrangler.toml` | Le dice a Cloudflare que publique solo la carpeta `web`. No hay que tocarlo. |
 
@@ -152,16 +153,27 @@ Así, cada cambio que guardes en la rama `main` de GitHub se publica solo.
 
 </details>
 
-## Paso 8 · El despertador (recomendado)
+## Paso 8 · El despertador (ya viene listo)
 
-Supabase gratis pausa el proyecto si pasan 7 días sin actividad. Si chatean a diario no pasa nada, pero si un día se van de viaje juntos y no escriben, este "despertador" lo mantiene activo:
+Supabase gratis pausa el proyecto si pasan 7 días con poca actividad. Si chatean a diario no pasa nada, pero si un día se van de viaje juntos y no escriben, el **despertador** lo mantiene activo.
+
+**Ya está funcionando solo, en GitHub** (`.github/workflows/despertador.yml`): 2 veces al día (12:17 a. m. y 12:17 p. m., hora de Colombia) toca la base de datos con la URL y la clave publicable de `web/js/config.js`. No usa secretos ni cuesta nada.
+
+- **Para ver que funciona:** GitHub → el repositorio → pestaña **Actions** → **Despertador**. Cada vuelta con ✅ verde dice "Supabase despierto". Con **Run workflow** lo pruebas cuando quieras.
+- **Si una vuelta sale con ❌ roja:** ábrela y lee el mensaje. Casi siempre es que el proyecto ya estaba pausado: Supabase → el proyecto → **Restore**.
+- GitHub apaga lo programado si un repositorio público pasa 60 días sin cambios; por eso el despertador se vuelve a activar solo cada vez que corre. Si algún día aparece "This scheduled workflow is disabled", toca **Enable workflow**.
+
+<details>
+<summary>Otra forma: el despertador en Cloudflare (solo si no quieren usar GitHub)</summary>
 
 1. Cloudflare → **Workers & Pages** → **Create application** → empieza desde **Hello World** → **Deploy**.
 2. **Edit code** → borra todo → pega `despertador/worker.js` → cambia las 2 líneas de arriba (`SUPABASE_URL` y `SUPABASE_KEY`, las mismas del paso 4) → **Deploy**.
 3. En el worker: **Settings** → **Triggers** (o *Trigger events*) → **Cron Triggers** → agrega `0 */6 * * *` (cada 6 horas).
 4. Abre la dirección del worker en el navegador: debe decir **✅ Supabase despierto**.
 
-> Si algún día se pausa igual: Supabase → el proyecto → **Resume project**. No se pierde nada.
+</details>
+
+> Si algún día se pausa igual: Supabase → el proyecto → **Restore** (o *Resume project*). No se pierde nada.
 
 ## Paso 9 · Instalar en los celulares
 
@@ -199,8 +211,10 @@ Cuando todo funcione: Supabase → **Realtime** → **Settings** → apaga **All
 
 - Mensajes al instante en ambos sentidos, con ✓ enviado, ✓✓ entregado y ✓✓ de color leído.
 - "En línea", "últ. vez" y "escribiendo…" / "grabando audio…".
-- Fotos (se comprimen a WebP para que suban rápido y ocupen poco), notas de voz con onda y velocidad 1x / 1.5x / 2x.
+- Fotos de la galería o **tomadas con la cámara** (botón 📷, en el celular). Se comprimen a WebP y **nunca pasan de 5 MB**, aunque el celular las tome enormes. Notas de voz con onda y velocidad 1x / 1.5x / 2x.
 - Responder (deslizando el mensaje a la derecha), reaccionar, copiar, editar (15 min) y eliminar para los dos.
+- **Borrar mensajes** (menú ⋮ → *Borrar mensajes*): uno solo (mantén presionado tu mensaje → *Eliminar para los dos*) o **vaciar todo el chat para los dos**, con doble confirmación. Se borran también las fotos y notas de voz de la nube y desaparecen de los dos celulares.
+- **Nada se reinicia:** tema, fondo, sonido, bloqueo, velocidad de los audios y notificaciones quedan guardados en la base de datos. Aunque cierres sesión, borres los datos o cambies de celular, al entrar todo vuelve como lo dejaste.
 - 💌 **Te extraño**: tu pareja recibe una pantalla especial con lluvia de corazones. En Android, dejando presionado el ícono aparece el atajo "Enviar un Te extraño".
 - Entrar tocando **"Soy Jampier" / "Soy Estrellita"** y el PIN de 4 números (el mismo para los dos), bloqueo automático con ese PIN y la pantalla se difumina en el selector de apps.
 - Tema automático (claro: piel y lila; oscuro: negro y rojo suave) con botón para cambiarlo, y fondo con corazones, liso o con una foto suya.
@@ -269,7 +283,7 @@ Cloudflare Pages: gratis, sin límite de visitas. Para ver el consumo: Supabase 
 
 **No llegan notificaciones:**
 1. iPhone: la app debe estar instalada desde Safari y abierta desde el ícono. Mira también Ajustes del iPhone → Notificaciones → E ❤ J.
-2. Que los avisos estén activados en **Ajustes** de la app de quien debe recibirlos (es por dispositivo).
+2. Que los avisos estén activados en **Ajustes** de la app de quien debe recibirlos. Se quedan como los dejes: solo se apagan si tú los apagas ahí.
 3. Si la otra persona tiene la app abierta en ese momento, no se manda aviso (ya lo está viendo).
 4. Supabase → **Edge Functions** → `enviar-push` → **Logs**:
    - "Faltan los secretos VAPID…" → repite el paso 5.
@@ -279,6 +293,10 @@ Cloudflare Pages: gratis, sin límite de visitas. Para ver el consumo: Supabase 
 
 **Olvidé el PIN** → es el mismo de los dos: pregúntaselo a tu amor 💜. Si ninguno lo recuerda, pon uno nuevo con `supabase/03_pin.sql`. Los mensajes siguen en la nube.
 
+**Los ajustes o los avisos vuelven a como estaban antes** → falta el SQL de la v1.5: ejecuta otra vez `supabase/01_estructura.sql` en el SQL Editor (es seguro repetirlo). Mientras falte, la app funciona, pero los ajustes solo se guardan en ese celular y "Vaciar todo el chat" da error.
+
+**Cerré sesión y no me llegan avisos** → al cerrar sesión los avisos **siguen** llegando a ese celular (así lo pediste). Si no llegan, revisa la lista de "No llegan notificaciones" de abajo.
+
 **La app no muestra los cambios que subí** → cambia `VERSION` en `web/sw.js` y en `web/js/config.js` antes de subir; luego en el celular toca **Actualizar** en el aviso "Hay una versión nueva de la app ✨".
 
 ---
@@ -286,6 +304,17 @@ Cloudflare Pages: gratis, sin límite de visitas. Para ver el consumo: Supabase 
 ## Novedades
 
 Numeración: **v1.0, v1.1, v1.2 … hasta v1.50; después v2.0**. Las primeras versiones tenían otro número; aquí van con los dos.
+
+**v1.5 · domingo 8 de noviembre de 2026, 3:15 p. m. — Nada se reinicia, cámara, vaciar el chat y despertador**
+- **Arreglado: al volver a entrar, las notificaciones aparecían apagadas.** Había dos causas: cerrar sesión (o un PIN cambiado) apagaba los avisos, y al abrir la app la suscripción no se renovaba. Ahora los avisos se quedan como los dejes, se renuevan solos cada vez que entras y **solo se apagan si los apagas en Ajustes**. Al cerrar sesión siguen llegando.
+- **Los ajustes quedan guardados en la base de datos** (columna nueva `perfiles.preferencias`): tema, fondo, sonido, tiempo de bloqueo, velocidad de los audios y avisos. Si cambias algo sin señal, se sube solo al volver la conexión. Celular nuevo o datos borrados → al entrar todo vuelve como estaba.
+- **Cerrar sesión ya no borra nada** del celular (mensajes guardados, borrador, ajustes): solo olvida el PIN guardado, para que haya que poner el PIN de nuevo.
+- **Cámara 📷**: botón nuevo junto al de la galería (solo en celulares) que abre la cámara directo. Las fotos se comprimen hasta quedar **por debajo de 5 MB** (si una sale pesada, se reduce más hasta que quepa).
+- **Borrar mensajes**: en el menú ⋮ → *Borrar mensajes* se explica cómo borrar uno solo y está el botón **Vaciar todo el chat** (para los dos, con doble confirmación). Borra mensajes, fotos y notas de voz de la nube y el otro celular se vacía al instante (o apenas se conecte).
+- **Despertador automático en GitHub** (`.github/workflows/despertador.yml`): 2 veces al día toca la base de datos para que Supabase nunca pause el proyecto. Probado contra el proyecto real: responde "ok".
+- Arreglado: dos diálogos seguidos (como la doble confirmación) podían sacar la app a una página en blanco por un cruce con el botón "atrás".
+- **Hay que volver a ejecutar `supabase/01_estructura.sql`** en Supabase (añade `preferencias`, la tabla `chat_estado`, la función `vaciar_chat` y el permiso para borrar archivos que ya nadie usa). Es seguro repetirlo.
+- Pruebas: 462 en total, todas bien (158 de base de datos, 59 de ingreso, 26 de la app, 70 de sus dos celulares, 90 de pantallas…).
 
 **v1.4 · domingo 8 de noviembre de 2026, 2:05 a. m. — "Soy Jampier / Soy Estrellita" y revisión completa**
 - Para entrar ya no se escribe ningún nombre: primero **"¿Quién eres?"** con los botones "Soy Jampier" y "Soy Estrellita"; después solo el PIN (entra sola al 4.º número). "No soy yo" vuelve a elegir. Los botones salen de `PERSONAS` en `web/js/config.js`.
@@ -341,6 +370,7 @@ Numeración: **v1.0, v1.1, v1.2 … hasta v1.50; después v2.0**. Las primeras v
 - [Supabase · JWT Signing Keys](https://supabase.com/docs/guides/auth/signing-keys)
 - [Supabase · Crear funciones desde el panel](https://supabase.com/docs/guides/functions/quickstart-dashboard)
 - [Supabase · Pausa de proyectos gratis](https://supabase.com/docs/guides/platform/free-project-pausing)
+- [GitHub Actions · Desactivar y activar flujos (60 días sin actividad)](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/disable-and-enable-workflows)
 - [Supabase · Facturación y límites del plan gratis](https://supabase.com/docs/guides/platform/billing-on-supabase)
 - [Supabase · auth.admin.generateLink](https://supabase.com/docs/reference/javascript/auth-admin-generatelink)
 - [Supabase · auth.verifyOtp](https://supabase.com/docs/reference/javascript/auth-verifyotp)

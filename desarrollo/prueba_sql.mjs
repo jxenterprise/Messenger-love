@@ -231,13 +231,15 @@ console.log('9) Fotos y notas de voz (bucket privado)');
 const bucket = (await admin("select public, file_size_limit from storage.buckets where id = 'media'"))[0];
 ok(bucket[0] === false && Number(bucket[1]) === 15728640, "bucket 'media' privado con límite de 15 MB");
 const SUBIR = "insert into storage.objects (bucket_id, name) values ('media', %s)";
-ok((await ja(SUBIR, [`${A}/${uuid()}.webp`])) === 1, 'subo a mi carpeta');
+const miFoto = `${A}/${uuid()}.webp`;
+ok((await ja(SUBIR, [miFoto])) === 1, 'subo a mi carpeta');
+await ja(INSERTAR, [uuid(), A, 'imagen', 'Foto en el chat', miFoto, null, null]); // la foto queda en un mensaje
 ok(await ja.falla(SUBIR, [`${B}/robado.webp`], null, 'row-level security'), 'no puedo subir a la carpeta de la otra persona');
 ok(await ja.falla(SUBIR, ['suelto.webp'], null, 'row-level security'), 'no se puede subir fuera de una carpeta');
 ok(await intruso.falla(SUBIR, [`${X}/x.webp`], null, 'row-level security'), 'una sesión sin perfil no sube archivos');
 ok((await es("select name from storage.objects where bucket_id = 'media'")).length === 1, 'la otra persona puede ver mis fotos');
 ok((await intruso('select name from storage.objects')).length === 0, 'una sesión sin perfil no ve fotos');
-ok((await es("delete from storage.objects where bucket_id = 'media'")) === 0, 'la otra persona no puede borrar mis fotos');
+ok((await es("delete from storage.objects where bucket_id = 'media'")) === 0, 'la otra persona no puede borrar mis fotos (las que están en el chat)');
 ok((await ja("delete from storage.objects where bucket_id = 'media'")) === 1, 'yo sí puedo borrar las mías');
 
 console.log('10) Lo que nadie de afuera puede hacer');
@@ -378,6 +380,57 @@ ok(
   (await admin('select string_agg(usuario, \',\' order by usuario) from perfiles'))[0][0] === 'estrellita,jampier',
   'los usuarios siguen iguales',
 );
+
+console.log('17) Ajustes guardados en la base de datos (nunca se reinician)');
+const est = como(B2);
+const misAjustes = { tema: 'oscuro', sonido: false, avisos: true, 'bloqueo-seg': 300 };
+await ja('update perfiles set preferencias = %s where id = %s', [JSON.stringify(misAjustes), A]);
+ok(isDeepStrictEqual((await ja('select preferencias from perfiles where id = %s', [A]))[0][0], misAjustes), 'cada uno guarda sus ajustes (tema, sonido, avisos, bloqueo…)');
+ok((await ja('update perfiles set preferencias = %s where id = %s', ['{"tema":"claro"}', B2])) === 0, 'no se pueden cambiar los ajustes del otro');
+ok(
+  await ja.falla('update perfiles set preferencias = %s where id = %s', [JSON.stringify({ x: 'a'.repeat(3000) }), A], null, 'perfiles_preferencias_validas'),
+  'los ajustes no pueden ser gigantes',
+);
+ok(await ja.falla("update perfiles set preferencias = '[1, 2]' where id = %s", [A], null, 'perfiles_preferencias_validas'), 'los ajustes deben ser un objeto');
+ok(await anon.falla("update perfiles set preferencias = '{}'", [], null, 'permission denied'), 'sin sesión no se tocan');
+await db.exec(ESTRUCTURA);
+ok(isDeepStrictEqual((await ja('select preferencias from perfiles where id = %s', [A]))[0][0], misAjustes), 'correr 01_estructura.sql otra vez no borra los ajustes');
+
+console.log('18) Vaciar el chat (para los dos)');
+await ja(INSERTAR, [uuid(), A, 'texto', 'Mensaje antes de vaciar', null, null, null]);
+await est(INSERTAR, [uuid(), B2, 'imagen', null, `${B2}/foto-e.webp`, null, null]);
+await ja(INSERTAR, [uuid(), A, 'audio', null, `${A}/nota.m4a`, null, null]);
+await admin("insert into storage.objects (bucket_id, name) values ('media', %s), ('media', %s), ('media', %s)", [
+  `${B2}/foto-e.webp`,
+  `${A}/nota.m4a`,
+  `${B2}/avatar-1.webp`,
+]);
+await admin('update perfiles set avatar_path = %s where id = %s', [`${B2}/avatar-1.webp`, B2]);
+ok((await ja('delete from storage.objects where name = %s', [`${B2}/foto-e.webp`])) === 0, 'mientras un mensaje usa la foto del otro, no se puede borrar');
+ok(await anon.falla('select vaciar_chat()', [], null, 'permission denied'), 'sin sesión no se puede vaciar');
+ok(await intruso.falla('select vaciar_chat()', [], null, 'no autorizado'), 'una sesión sin perfil no puede vaciar');
+ok(Number((await admin('select count(*) from mensajes'))[0][0]) >= 3, 'antes de vaciar hay mensajes de los dos');
+const rutasVaciadas = (await ja('select vaciar_chat()'))[0][0];
+ok(
+  Array.isArray(rutasVaciadas) && rutasVaciadas.includes(`${B2}/foto-e.webp`) && rutasVaciadas.includes(`${A}/nota.m4a`),
+  'devuelve las rutas de las fotos y notas de voz de los dos (para borrarlas)',
+);
+ok(Number((await admin('select count(*) from mensajes'))[0][0]) === 0, 'se borran TODOS los mensajes, de los dos');
+const estadoChat = (await est('select vaciado_en, vaciado_por from chat_estado'))[0];
+ok(estadoChat?.[0] !== null && estadoChat?.[1] === A, 'queda registrado cuándo y quién lo vació (así el otro celular se entera)');
+ok((await intruso('select * from chat_estado')).length === 0, 'una sesión sin perfil no ve ese registro');
+ok(await anon.falla('select * from chat_estado', [], null, 'permission denied'), 'sin sesión tampoco');
+ok(await est.falla('update chat_estado set vaciado_en = now()', [], null, 'permission denied'), 'nadie lo cambia a mano');
+ok((await ja('delete from storage.objects where name = %s', [`${B2}/foto-e.webp`])) === 1, 'ya sin mensajes, se puede borrar la foto del otro (no queda ocupando espacio)');
+ok((await ja('delete from storage.objects where name = %s', [`${B2}/avatar-1.webp`])) === 0, 'pero no la foto de perfil del otro (sigue en uso)');
+ok((await intruso('delete from storage.objects where name = %s', [`${A}/nota.m4a`])) === 0, 'una sesión sin perfil no borra archivos');
+ok((await ja(INSERTAR, [uuid(), A, 'texto', 'Empezamos de nuevo 💜', null, null, null])).length === 1, 'después de vaciar se sigue escribiendo normal');
+const pubEstado = Number(
+  (await admin("select count(*) from pg_publication_tables where pubname = 'supabase_realtime' and tablename = 'chat_estado'"))[0][0],
+);
+ok(pubEstado === 1, 'el aviso de "chat vaciado" llega en tiempo real');
+await db.exec(ESTRUCTURA);
+ok(true, '01_estructura.sql se puede correr otra vez con todo lo nuevo');
 
 console.log(`\n${pruebas - fallos.length}/${pruebas} pruebas superadas`);
 if (fallos.length) {

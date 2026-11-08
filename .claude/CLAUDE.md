@@ -21,13 +21,14 @@ Chat privado (PWA) para exactamente **2 personas**: Jampier (JX, dueño del proy
   - Riesgo aceptado: cualquiera que sepa el PIN y un usuario entra como esa persona (los dos comparten PIN, así lo quiso JX). Un atacante puede bloquear las cuentas a propósito (15 fallos); las sesiones abiertas no se caen.
 - Llamadas de voz/video: **pendiente para la versión 2** (lo pidió así).
 
-## Estado (7 nov 2026)
+## Estado (8 nov 2026, v1.5)
 
 - PR #1 ya está en `main`: la dirección .pages.dev muestra la app ("Casi listo"). La versión 1.1.0 (usuario + PIN) se subió directo a `main` a pedido de JX.
 - El README tiene "Estado actual" arriba y una sección **Novedades** por versión: actualizarlas en cada entrega.
 - Ingreso con usuario + PIN hecho y probado (versión 1.1.0). La carpeta local de JX (Windows) está conectada a GitHub con git (`origin/main`).
 - **8 nov 2026 — Supabase conectado (versión 1.1.1):** proyecto `messenger-eyj` (ref `kcxhaducunhulfuiipfe`, sa-east-1, org JX Enterprise, plan Free). Cuentas con correos reales (`jampierdev@gmail.com`, `estrellitaperez2628@gmail.com`); como el usuario sale del correo, se puso a mano con SQL: `usuario` = `jampier` / `estrellita`. Registro cerrado, PIN puesto (JX no lo compartió: no pedirlo), secretos VAPID, funciones publicadas con Verify JWT apagado (verificado: responden con nuestros mensajes). Sin sesión: perfiles/mensajes/verificar_acceso dan 401.
-- **Pendiente:** prueba real entre los dos (JX tiene el PIN), instalar en los celulares y activar avisos; despertador (paso 8) opcional.
+- **8 nov 2026, 3:15 p. m. — v1.5:** ajustes y avisos que nunca se reinician (`perfiles.preferencias`), cámara (fotos < 5 MB), vaciar el chat para los dos, despertador en GitHub Actions (`.github/workflows/despertador.yml`, probado: el ping al proyecto real da 200 "ok").
+- **Pendiente:** que JX vuelva a ejecutar `supabase/01_estructura.sql` en el SQL Editor (sin eso, `preferencias`/`vaciar_chat`/`chat_estado` no existen: la app sigue funcionando gracias al respaldo 42703 de `cargarPerfiles`, pero no guarda ajustes en la nube y vaciar da error). Prueba real entre los dos, instalar en los celulares y activar avisos.
 - El Python de JX (3.13) está dañado (falta `pickle`); instaló 3.15 (comando `py`). Ya no se usa Python en el proyecto.
 - JX no quiere un "bot": sin Supabase el sitio publicado muestra "Casi listo", nunca la pareja simulada (ver `FALTA_CONEXION` abajo).
 
@@ -40,6 +41,8 @@ Agregar una entrada al final de cada sesión, ANTES de publicar.
 - **Dom 8 nov 2026, ~12:30 a. m. → 1:10 a. m.** — Supabase configurado paso a paso con JX: proyecto `messenger-eyj`, SQL 01, cuentas con correos reales + usuarios puestos con SQL, registro cerrado, PIN, secretos VAPID, las 2 funciones (Verify JWT apagado, verificado con curl). App conectada (versión 1.1.1) y probada contra el proyecto real con un usuario inventado. La publicación quedó para que JX la autorice. **Siguiente:** que JX pruebe con el PIN real (2 ventanas en localhost:8080), instalar en los 2 celulares y activar avisos.
 - **Dom 8 nov 2026, ~1:10 a. m. → 1:35 a. m.** — Documentación con fecha y hora (regla nueva de JX: documentar ANTES de publicar). El clasificador de permisos bloqueaba `git push`; JX agregó la regla `PowerShell(git push:*)` en `.claude/settings.local.json` (solo su PC) y desde ahí Claude sube con PowerShell. Se creó `.claude/settings.json` con permisos de solo lectura. Versión 1.1.1 publicada y comprobada en producción.
 - **Dom 8 nov 2026, ~1:35 a. m. → 2:10 a. m.** — **v1.4.** JX pidió: (1) botones "Soy Jampier / Soy Estrellita" en vez de escribir el usuario; (2) versión visible bajo "Nuestro rincón privado" con numeración 1.0…1.50 → 2.0; (3) revisar "al revés" — no era un error de cuentas: arriba sale la pareja (como WhatsApp); se agregó saludo "Hola, X 💜 Estás hablando con Y" y placeholder "Escríbele a Y…"; (4) revisión completa con prioridad en SUS celulares: **Redmi Note 14 Pro+ (Jampier) y iPhone 12 Pro Max (Estrellita)**. Arreglados: fechas pegadas apiladas al deslizar, lluvia/avisos encima del PIN de bloqueo, foco inmediato del PIN (iOS abre el teclado). Pruebas nuevas de dispositivos (WebKit para el iPhone).
+
+- **Dom 8 nov 2026, ~9:30 a. m. → 3:15 p. m.** — **v1.5.** JX reportó que al volver a entrar las notificaciones salían apagadas y pidió que "no se reinicie nada nunca". Causas: `forzarSalida` (cerrar sesión, PIN cambiado…) llamaba `desactivarNotificaciones`, y `asegurarSuscripcion` nunca corría al reabrir (se llamaba antes de `ctx.yo`). Solución: `perfiles.preferencias` jsonb (tema, fondo, sonido, bloqueo-seg, velocidad-audio, avisos) sincronizado con `guardarPreferencia`/`sincronizarPreferencias` en `app.js`; los avisos solo se apagan desde Ajustes; al entrar `revisarAvisos()` renueva la suscripción; cerrar sesión ya no borra nada (solo el PIN guardado). Además: botón de cámara (`capture="environment"`, solo táctil) y `comprimirImagen` con tope de 5 MB; menú ⋮ → "Borrar mensajes" (explica borrar uno + "Vaciar todo el chat" con doble confirmación, RPC `vaciar_chat` + tabla `chat_estado` en realtime); despertador en GitHub Actions (JX eligió eso; se re-activa solo por la regla de 60 días). Bug encontrado por las pruebas: dos capas seguidas cruzaban `history.back()` con `pushState` y la página quedaba en blanco → `abrirCapa` espera a que termine el "atrás" (`esperaHistorial`). 462 pruebas OK.
 
 ## Preferencias de JX (respetarlas siempre)
 
@@ -60,6 +63,8 @@ Agregar una entrada al final de cada sesión, ANTES de publicar.
 ```
 .claude/CLAUDE.md         este archivo (escondido a pedido de JX)
 .gitignore                artefactos de las pruebas (node_modules, capturas, .deno…)
+.github/workflows/despertador.yml  despertador: cron 2 veces al día → POST rpc/ping con la URL y la clave
+                          publicable que lee de web/js/config.js; se re-activa solo (gh workflow enable)
 wrangler.toml             Cloudflare Pages: publicar solo web/ (ver arriba)
 web/                      ← lo único que publica Cloudflare Pages (Build output directory)
   index.html              pantallas: carga, conexión ("Casi listo"), entrada en 2 pasos ("¿Quién eres?" con botones
@@ -69,8 +74,10 @@ web/                      ← lo único que publica Cloudflare Pages (Build outp
                           CLAVE_PELIGROSA (sb_secret_/service_role → aviso rojo, no se usa), CONECTADA,
                           MODO_DEMO (solo __VISTA_PREVIA__, localhost/127.0.0.1 o ?demo, y nunca si está CONECTADA)
                           y FALTA_CONEXION (publicada sin datos → pantalla "Casi listo", sin backend)
-  js/app.js               arranque, tema, sesión, PIN, ajustes, notificaciones, instalación, latido
-  js/chat.js              chat: estado, render, bandeja offline, caché, gestos, grabación, búsqueda
+  js/app.js               arranque, tema, sesión, PIN, ajustes (guardarPreferencia → perfiles.preferencias),
+                          notificaciones (revisarAvisos al entrar), instalación, latido
+  js/chat.js              chat: estado, render, bandeja offline, caché, gestos, grabación, búsqueda, cámara,
+                          "Borrar mensajes" / vaciar el chat (aplicarVaciado, revisarVaciado)
   js/backend-supabase.js  única puerta a Supabase (misma interfaz que backend-demo.js)
   js/backend-demo.js      backend simulado para la vista previa (pareja que responde sola)
   js/interfaz.js          capas, avisos, confirmar, diálogos, hojas, visor de fotos, sonidos
@@ -99,7 +106,8 @@ desarrollo/                          pruebas automáticas y constructor de la vi
 
 Si cambias algo aquí, cambia los tres lugares.
 
-- `perfiles(id, nombre, avatar_path, notif_con_texto, en_app, visto_en, …)` — el cliente solo puede actualizar `nombre`, `avatar_path`, `notif_con_texto`.
+- `perfiles(id, nombre, avatar_path, notif_con_texto, preferencias, en_app, visto_en, …)` — el cliente solo puede actualizar `nombre`, `avatar_path`, `notif_con_texto`, `preferencias` (jsonb objeto ≤ 2000 bytes; claves: `tema`, `fondo`, `sonido`, `bloqueo-seg`, `velocidad-audio`, `avisos` = las mismas de localStorage `eyj:`). `avisos`: true/false/ausente (ausente = nunca eligió). La foto de fondo vive solo en el celular (kv `fondo-foto`).
+- `chat_estado(id=true, vaciado_en, vaciado_por)` — una fila, solo lectura para los miembros, en la publicación realtime. `vaciar_chat() → text[]` (rutas de media para borrar del Storage; borra todos los mensajes). Política de Storage "borrar archivos que ya nadie usa" (`privado.archivo_en_uso`). Backends: `vaciarChat()`, `estadoChat() → {vaciadoEn, vaciadoPor}`, callback `onChatVaciado(vaciadoEn, vaciadoPor)`. El cliente guarda `eyj:vaciado:<uid>` y filtra la caché con eso.
 - `mensajes(id, client_id unique, remitente, tipo texto|imagen|audio|te_extrano, contenido, media_path, media_meta, responde_a, reacciones jsonb, editado_en, borrado, entregado_en, leido_en, notificado_en, creado_en, actualizado_en)` — el cliente solo inserta (`upsert … onConflict client_id, ignoreDuplicates`); todo lo demás va por RPC.
 - `perfiles.usuario` (solo lectura para la app). RPC del ingreso: `verificar_acceso(p_usuario, p_pin) → jsonb` (solo service_role), `cambiar_pin(p_actual, p_nuevo) → jsonb {ok, version | motivo}`, `version_pin() → int`. Motivos: `datos` (con `restantes`), `esperar` (con `segundos`), `bloqueado`, `sin-pin`.
 - Backends (`backend-supabase.js` y `backend-demo.js`): `entrar(usuario, pin) → {usuario, version}`, `cambiarPin(actual, nuevo) → version`, `versionPin()`; el demo además `pinDemo()` (1234, se muestra en #pin-demo).
@@ -116,17 +124,18 @@ Si cambias algo aquí, cambia los tres lugares.
 - Sincronización por `actualizado_en > última - 3 s` (trigger en cada update). Bandeja offline con `client_id` idempotente.
 - Push: el cliente invoca `enviar-push` tras insertar; la función "reclama" `notificado_en` de forma atómica, no avisa si la pareja tiene la app abierta (latido < 40 s), descarta mensajes de más de 12 h, borra suscripciones 404/410 y libera el reclamo si todo falló por causas pasajeras. **Verify JWT apagado**: la función verifica la sesión con `auth.getUser(token)` y lee `SUPABASE_SECRET_KEYS` (o `SUPABASE_SERVICE_ROLE_KEY`).
 - Avisos discretos por defecto ("E ❤ J · Tienes un mensaje nuevo 💌"); con `notif_con_texto` del destinatario muestran nombre y texto.
+- Los ajustes nunca se pierden: cerrar sesión / PIN cambiado / muchos intentos (`forzarSalida`) NO desuscribe los avisos ni borra caché, borrador, bandeja ni ajustes; solo `borrarPin` y la versión del PIN. Los avisos solo se apagan con el interruptor de Ajustes (`avisos: false`).
 - Cada vez que cambie un archivo de `web/`: subir `VERSION` en `web/sw.js` y `CONFIG.VERSION`, y mantener la lista `ARCHIVOS_APP` de `sw.js` al día. Orígenes nuevos → actualizar la CSP de `_headers`.
 - Vista previa (`window.__VISTA_PREVIA__`): sin service worker, sin historial, sin botón de guardar foto, banner "Vista previa".
 - El sitio publicado nunca muestra la pareja simulada por defecto: sin Supabase → "Casi listo"; el demo solo con `?demo` (o en localhost para las pruebas).
 
 ## Pruebas (`desarrollo/`) — todo en Node, `npm test` corre todo
 
-- `prueba_sql.mjs` — 136 pruebas de RLS/RPC/PIN con **PGlite** (PostgreSQL en Node, sin instalar nada) y `supabase_simulado.sql`. Reemplazó a `prueba_sql.py`.
+- `prueba_sql.mjs` — 158 pruebas de RLS/RPC/PIN con **PGlite** (PostgreSQL en Node, sin instalar nada) y `supabase_simulado.sql`. Reemplazó a `prueba_sql.py`.
 - `prueba_entrar.mjs` (23) — `entrar-con-pin` empaquetada con esbuild + supabase-js real; `verificar_acceso` responde PGlite.
 - `prueba_funcion.mjs` (34) y `e2e_deno.mjs` (Deno real) — `enviar-push`; descifra con `http_ece` y verifica VAPID.
 - `prueba_pantallas.mjs` (90: 10 tamaños × pantallas) y `prueba_celulares.mjs` (70+: Redmi Note 14 Pro+ y iPhone 12 Pro Max con WebKit, notch/barra simulados con `--seguro-arriba/abajo`). `cerrarSorpresas()` en `apoyo_navegador.mjs` cierra el "Te extraño" sorpresa del demo (~26 s) si aparece. WebKit en Windows no aplica pesos de la fuente variable Nunito (negritas se ven delgadas solo en la prueba; el iPhone real sí).
-- `prueba_ingreso.mjs` (49) y `prueba_app.mjs` (18) — navegador (Edge por defecto, `apoyo_navegador.mjs`): ingreso, bloqueo, cambio de PIN, app conectada a un Supabase imitado (dominio `eyj.prueba` + `--unsafely-treat-insecure-origin-as-secure` porque PBKDF2 necesita contexto seguro), "Casi listo", clave secreta, y la app completa en demo. Reemplazaron a los `.py`.
+- `prueba_ingreso.mjs` (59) y `prueba_app.mjs` (26) — navegador (Edge por defecto, `apoyo_navegador.mjs`): ingreso, bloqueo, cambio de PIN, app conectada a un Supabase imitado (dominio `eyj.prueba` + `--unsafely-treat-insecure-origin-as-secure` porque PBKDF2 necesita contexto seguro), "Casi listo", clave secreta, y la app completa en demo. Reemplazaron a los `.py`.
 - `prueba_sin_senal.mjs` + `servidor_cloudflare.mjs` — abrir sin señal con las redirecciones de Cloudflare. `npm run ver` sirve `web/` en http://localhost:8080.
 - `prueba_generador.mjs` — generador de claves VAPID.
 - En Windows los archivos están con CRLF (core.autocrlf=true); usar `fileURLToPath`/`pathToFileURL`, nunca `URL.pathname`, para rutas.

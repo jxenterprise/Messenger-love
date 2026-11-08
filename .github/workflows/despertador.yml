@@ -1,0 +1,72 @@
+# ============================================================================
+#  Despertador — Messenger Estrellita y Jampier ❤️
+# ----------------------------------------------------------------------------
+#  Supabase (plan gratis) pausa el proyecto si pasan 7 días con poca actividad.
+#  Este trabajo de GitHub toca la base de datos (rpc/ping) 2 veces al día,
+#  solo, gratis y sin que nadie haga nada. Así, aunque no se escriban en una
+#  semana (un viaje juntos, por ejemplo), el chat nunca se duerme.
+#
+#  - Usa la URL y la clave PUBLICABLE que ya están en web/js/config.js
+#    (son públicas por diseño; no hace falta ningún secreto).
+#  - Para probarlo a mano: GitHub → Actions → Despertador → Run workflow.
+#  - GitHub apaga los trabajos programados de un repositorio público si pasan
+#    60 días sin cambios: por eso, cada vez que corre, se vuelve a activar a
+#    sí mismo. Si un día aparece apagado, en Actions → Despertador →
+#    "Enable workflow" se prende otra vez.
+# ============================================================================
+name: Despertador
+
+on:
+  schedule:
+    # 5:17 y 17:17 UTC (12:17 a. m. y 12:17 p. m. en Colombia).
+    # Minuto "raro" a propósito: a la hora en punto GitHub va más lento.
+    - cron: '17 5,17 * * *'
+  workflow_dispatch: # botón "Run workflow" para probarlo
+
+permissions:
+  contents: read
+  actions: write # solo para volver a activarse a sí mismo
+
+jobs:
+  despertar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Traer la configuración de la app
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: web/js/config.js
+          sparse-checkout-cone-mode: false
+
+      - name: Tocar la base de datos (rpc/ping)
+        run: |
+          URL=$(grep -oE "SUPABASE_URL: *'[^']+'" web/js/config.js | sed -E "s/.*'([^']+)'/\1/" | sed -E 's#/+$##')
+          CLAVE=$(grep -oE "SUPABASE_KEY: *'[^']+'" web/js/config.js | sed -E "s/.*'([^']+)'/\1/")
+          if [ -z "$URL" ] || [ -z "$CLAVE" ]; then
+            echo "::error::No encontré SUPABASE_URL o SUPABASE_KEY en web/js/config.js"
+            exit 1
+          fi
+          case "$CLAVE" in
+            sb_secret_*) echo "::error::En config.js quedó la clave SECRETA. Pon la publicable."; exit 1 ;;
+          esac
+          # Las claves clásicas (anon, empiezan por "eyJ") también van en Authorization
+          EXTRA=()
+          case "$CLAVE" in eyJ*) EXTRA=(-H "Authorization: Bearer $CLAVE") ;; esac
+          for intento in 1 2 3; do
+            CODIGO=$(curl -sS -o respuesta.txt -w '%{http_code}' -X POST "$URL/rest/v1/rpc/ping" \
+              -H "apikey: $CLAVE" "${EXTRA[@]}" -H 'Content-Type: application/json' -d '{}' || echo 000)
+            echo "Intento $intento: HTTP $CODIGO — $(head -c 200 respuesta.txt 2>/dev/null)"
+            if [ "$CODIGO" = "200" ]; then
+              echo "✅ Supabase despierto"
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "::error::Supabase no respondió bien. Si el proyecto está pausado, restáuralo en supabase.com → tu proyecto → Restore."
+          exit 1
+
+      - name: Seguir activo (GitHub apaga lo programado tras 60 días sin cambios)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow enable despertador.yml --repo "$GITHUB_REPOSITORY" || echo "No se pudo renovar (no es grave)"

@@ -39,7 +39,8 @@ try {
   );
   ok(JSON.stringify(botonesPersona) === JSON.stringify(['jampier:J Soy Jampier', 'estrellita:E Soy Estrellita']), `primero pregunta "¿Quién eres?" con 2 botones (${botonesPersona.join(' | ')})`);
   ok(!(await p.isVisible('#formulario-entrada')), 'todavía no pide el PIN ni hay que escribir ningún nombre');
-  ok((await p.textContent('.marca [data-version]')) === 'v1.4', 'la versión v1.4 se ve debajo de "Nuestro rincón privado"');
+  const versionApp = `v${configSinSupabase().match(/VERSION: '([^']+)'/)[1]}`; // la de web/js/config.js
+  ok((await p.textContent('.marca [data-version]')) === versionApp, `la versión ${versionApp} se ve debajo de "Nuestro rincón privado"`);
   ok(await p.isVisible('#caja-demo'), 'en el computador se ve la ayuda de la vista previa');
   await p.screenshot({ path: `${capturas}ingreso-01-entrada.png` });
 
@@ -128,13 +129,50 @@ try {
   await p.fill('#pin-entrada', '5826');
   await p.waitForSelector('#pantalla-chat:not([hidden])', { timeout: 8000 });
   ok((await p.textContent('#nombre-pareja')) === 'Jampier', 'estrellita entra con el mismo PIN y ve a Jampier como su pareja');
+  // Ajustes que nunca se reinician: Estrellita pone modo oscuro, apaga el sonido y escribe un borrador
+  await p.fill('#entrada-mensaje', 'borrador que no se pierde');
   await p.click('#boton-menu');
   await p.click('.hoja [data-accion="ajustes"]');
   await p.waitForSelector('.panel');
+  await p.click('.panel [data-grupo="tema"] [data-valor="oscuro"]');
+  await p.click('.panel label:has(#interruptor-sonido)');
+  await p.click('.panel [data-grupo="bloqueo"] [data-valor="60"]');
+  await p.waitForTimeout(1200); // se suben a la "nube" (en el demo, perfiles.preferencias imitado)
+  const nube = await p.evaluate(() => {
+    const clave = Object.keys(localStorage).find((k) => k.startsWith('eyj:demo:preferencias:') && localStorage.getItem(k).includes('oscuro'));
+    return clave ? JSON.parse(localStorage.getItem(clave)) : null;
+  });
+  ok(nube?.tema === 'oscuro' && nube?.sonido === false && nube?.['bloqueo-seg'] === 60, 'los ajustes se guardan en la base de datos (perfiles.preferencias)');
   await p.click('.panel [data-accion="salir"]');
-  await p.click('.dialogo .boton.peligro');
+  await p.waitForSelector('.dialogo');
+  ok(!(await p.isVisible('.dialogo .boton.peligro')), 'cerrar sesión ya no es una acción "peligrosa" (no borra nada)');
+  ok((await p.textContent('.dialogo')).includes('No se borra nada'), 'el aviso dice que no se borra nada');
+  await p.click('.dialogo [data-respuesta="si"]');
   await p.waitForSelector('#pantalla-entrada:not([hidden])');
   ok(await p.isVisible('#paso-persona'), 'cerrar sesión vuelve a "¿Quién eres?"');
+  const quedo = await p.evaluate(() => ({
+    borrador: Object.keys(localStorage).filter((k) => k.startsWith('eyj:borrador:')).map((k) => localStorage.getItem(k)).join(' '),
+    sonido: localStorage.getItem('eyj:sonido'),
+  }));
+  ok(quedo.borrador.includes('borrador que no se pierde') && quedo.sonido === 'false', 'al cerrar sesión se quedan el borrador y los ajustes');
+
+  console.log('5b) Celular borrado o nuevo: los ajustes vuelven desde la nube');
+  await p.evaluate(() => ['eyj:tema', 'eyj:sonido', 'eyj:bloqueo-seg'].forEach((k) => localStorage.removeItem(k)));
+  await p.click('[data-persona="estrellita"]');
+  await p.fill('#pin-entrada', '5826');
+  await p.waitForSelector('#pantalla-chat:not([hidden])', { timeout: 8000 });
+  await p.waitForTimeout(600);
+  ok((await p.getAttribute('html', 'data-theme')) === 'dark', 'vuelve el modo oscuro que había elegido');
+  const recuperados = await p.evaluate(() => ({ sonido: localStorage.getItem('eyj:sonido'), bloqueo: localStorage.getItem('eyj:bloqueo-seg') }));
+  ok(recuperados.sonido === 'false' && recuperados.bloqueo === '60', 'vuelven el sonido apagado y el bloqueo de 1 minuto');
+  ok((await p.inputValue('#entrada-mensaje')) === 'borrador que no se pierde', 'el borrador sigue ahí');
+  await p.click('#boton-menu');
+  await p.click('.hoja [data-accion="ajustes"]');
+  await p.waitForSelector('.panel');
+  ok(!(await p.isChecked('#interruptor-sonido')), 'en Ajustes el sonido sigue apagado');
+  await p.click('.panel [data-accion="salir"]');
+  await p.click('.dialogo [data-respuesta="si"]');
+  await p.waitForSelector('#pantalla-entrada:not([hidden])');
   ok((await p.textContent('#pin-demo')) === '5826', 'la ayuda de la vista previa muestra el PIN de ejemplo actual');
   ok(errores.length === 0, `sin errores en la consola ${errores.length ? JSON.stringify(errores) : ''}`);
   await contexto.close();
@@ -177,11 +215,13 @@ try {
       return json({ access_token: jwt, token_type: 'bearer', expires_in: 3600, expires_at: exp, refresh_token: 'refresco', user: { id: A, email: 'jampier@eyj.app', aud: 'authenticated', role: 'authenticated' } });
     }
     if (url.pathname === '/rest/v1/perfiles') {
+      if (peticion.method() === 'PATCH') return r.fulfill({ status: 204, headers: cors });
       return json([
-        { id: A, usuario: 'jampier', nombre: 'Jampier', avatar_path: null, notif_con_texto: false, en_app: true, visto_en: new Date().toISOString() },
-        { id: B, usuario: 'estrellita', nombre: 'Estrellita', avatar_path: null, notif_con_texto: false, en_app: false, visto_en: new Date().toISOString() },
+        { id: A, usuario: 'jampier', nombre: 'Jampier', avatar_path: null, notif_con_texto: false, preferencias: {}, en_app: true, visto_en: new Date().toISOString() },
+        { id: B, usuario: 'estrellita', nombre: 'Estrellita', avatar_path: null, notif_con_texto: false, preferencias: {}, en_app: false, visto_en: new Date().toISOString() },
       ]);
     }
+    if (url.pathname === '/rest/v1/chat_estado') return json([]);
     if (url.pathname === '/rest/v1/mensajes') return json([]);
     if (url.pathname === '/rest/v1/rpc/version_pin') return json(3);
     if (url.pathname.startsWith('/rest/v1/rpc/')) return json(null);
@@ -225,6 +265,10 @@ try {
   const guardado = await p.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('eyj:pin:')).map((k) => localStorage.getItem(k)));
   ok(guardado.length === 1 && !guardado[0].includes('7391') && guardado[0].includes('huella'), 'el PIN queda en el celular solo cifrado (para el bloqueo sin señal)');
   ok((await p.evaluate(() => localStorage.getItem('eyj:pin-version'.replace('version', `version:${'11111111-1111-4111-8111-111111111111'}`)))) === '3', 'guarda la versión del PIN');
+  await p.waitForTimeout(1200);
+  const subida = llamadas.find((l) => l.ruta === '/rest/v1/perfiles' && l.cuerpo?.preferencias);
+  ok(subida && typeof subida.cuerpo.preferencias === 'object', 'la primera vez sube los ajustes de este celular a perfiles.preferencias');
+  ok(llamadas.some((l) => l.ruta === '/rest/v1/chat_estado'), 'revisa si el chat se vació mientras no estaba (chat_estado)');
   await p.screenshot({ path: `${capturas}ingreso-06-conectada.png` });
   ok(errores.length === 0, `sin errores en la consola ${errores.length ? JSON.stringify(errores) : ''}`);
   await contexto.close();

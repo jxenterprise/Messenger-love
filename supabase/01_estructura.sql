@@ -43,6 +43,19 @@ end;
 $$;
 create unique index if not exists perfiles_usuario_idx on public.perfiles (usuario);
 
+-- Ajustes de cada uno (tema, fondo, sonido, bloqueo, avisos…): se guardan aquí
+-- para que NUNCA se reinicien, aunque cierre sesión o cambie de celular.
+alter table public.perfiles add column if not exists preferencias jsonb not null default '{}'::jsonb;
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'perfiles_preferencias_validas') then
+    alter table public.perfiles
+      add constraint perfiles_preferencias_validas
+      check (jsonb_typeof(preferencias) = 'object' and pg_column_size(preferencias) <= 2000);
+  end if;
+end;
+$$;
+
 create table if not exists public.mensajes (
   id              uuid primary key default gen_random_uuid(),
   client_id       uuid not null unique,              -- lo crea el celular: evita duplicados al reintentar
@@ -426,7 +439,7 @@ $$;
 revoke all on table public.perfiles, public.mensajes, public.suscripciones_push from anon, authenticated;
 
 grant select on table public.perfiles to authenticated;
-grant update (nombre, avatar_path, notif_con_texto) on table public.perfiles to authenticated;
+grant update (nombre, avatar_path, notif_con_texto, preferencias) on table public.perfiles to authenticated;
 
 grant select on table public.mensajes to authenticated;
 grant insert (client_id, remitente, tipo, contenido, media_path, media_meta, responde_a) on table public.mensajes to authenticated;
@@ -793,6 +806,88 @@ grant execute on function public.verificar_acceso(text, text) to service_role;
 
 revoke execute on function public.cambiar_pin(text, text), public.version_pin() from public, anon;
 grant execute on function public.cambiar_pin(text, text), public.version_pin() to authenticated;
+
+
+-- ============================================================================
+-- 9) VACIAR EL CHAT (borrar TODOS los mensajes, para los dos)
+-- ----------------------------------------------------------------------------
+--  · vaciar_chat() borra todos los mensajes y devuelve las rutas de sus fotos
+--    y notas de voz para que la app las borre del depósito "media".
+--  · chat_estado guarda cuándo se vació: el otro celular se entera al
+--    instante (tiempo real) o la próxima vez que abra la app, y limpia lo
+--    que tenga guardado.
+--  · Archivos que ya ningún mensaje ni foto de perfil usa: cualquiera de los
+--    dos los puede borrar (así se borran también las fotos del otro).
+-- ============================================================================
+create table if not exists public.chat_estado (
+  id          boolean primary key default true check (id),  -- una sola fila
+  vaciado_en  timestamptz,
+  vaciado_por uuid references public.perfiles (id) on delete set null
+);
+
+alter table public.chat_estado enable row level security;
+revoke all on table public.chat_estado from anon, authenticated;
+grant select on table public.chat_estado to authenticated;
+
+drop policy if exists "chat: los miembros lo ven" on public.chat_estado;
+create policy "chat: los miembros lo ven" on public.chat_estado
+  for select to authenticated
+  using ((select privado.es_miembro()));
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+     where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'chat_estado'
+  ) then
+    alter publication supabase_realtime add table public.chat_estado;
+  end if;
+end;
+$$;
+
+create or replace function public.vaciar_chat()
+returns text[]
+language plpgsql security definer
+set search_path = ''
+as $$
+declare
+  rutas text[];
+begin
+  if not privado.es_miembro() then
+    raise exception 'No autorizado.';
+  end if;
+  select coalesce(array_agg(media_path) filter (where media_path is not null), '{}')
+    into rutas
+    from public.mensajes;
+  delete from public.mensajes where id is not null;  -- (el "where" lo exige Supabase)
+  insert into public.chat_estado (id, vaciado_en, vaciado_por)
+  values (true, now(), auth.uid())
+  on conflict (id) do update
+     set vaciado_en = excluded.vaciado_en,
+         vaciado_por = excluded.vaciado_por;
+  return rutas;
+end;
+$$;
+
+-- ¿Algún mensaje o foto de perfil usa todavía este archivo?
+create or replace function privado.archivo_en_uso(p_ruta text)
+returns boolean
+language sql stable security definer
+set search_path = ''
+as $$
+  select exists (select 1 from public.mensajes where media_path = p_ruta)
+      or exists (select 1 from public.perfiles where avatar_path = p_ruta);
+$$;
+
+drop policy if exists "media: borrar archivos que ya nadie usa" on storage.objects;
+create policy "media: borrar archivos que ya nadie usa" on storage.objects
+  for delete to authenticated
+  using (bucket_id = 'media' and (select privado.es_miembro()) and not privado.archivo_en_uso(name));
+
+revoke execute on function public.vaciar_chat() from public, anon;
+grant execute on function public.vaciar_chat() to authenticated;
+revoke execute on function privado.archivo_en_uso(text) from public, anon;
+grant execute on function privado.archivo_en_uso(text) to authenticated;
 
 
 -- ============================================================================

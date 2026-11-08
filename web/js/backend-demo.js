@@ -115,10 +115,11 @@ export class BackendDemo {
     const hora = 60 * min;
     const hace = (ms) => new Date(ahora - ms).toISOString();
     const nombreGuardado = (id, porDefecto) => local.leer(`demo:nombre:${id}`, porDefecto);
+    const ajustes = (id) => local.leer(`demo:preferencias:${id}`, {}); // como la columna "preferencias"
 
     this.perfiles = [
-      { id: J, usuario: 'jampier', nombre: nombreGuardado(J, 'Jampier'), avatar_path: null, notif_con_texto: false, en_app: false, visto_en: hace(3 * min) },
-      { id: E, usuario: 'estrellita', nombre: nombreGuardado(E, 'Estrellita'), avatar_path: null, notif_con_texto: false, en_app: false, visto_en: hace(3 * min) },
+      { id: J, usuario: 'jampier', nombre: nombreGuardado(J, 'Jampier'), avatar_path: null, notif_con_texto: false, preferencias: ajustes(J), en_app: false, visto_en: hace(3 * min) },
+      { id: E, usuario: 'estrellita', nombre: nombreGuardado(E, 'Estrellita'), avatar_path: null, notif_con_texto: false, preferencias: ajustes(E), en_app: false, visto_en: hace(3 * min) },
     ];
 
     const filas = [
@@ -169,6 +170,19 @@ export class BackendDemo {
     const yo = this.perfiles.find((p) => p.id === this.usuario.id);
     Object.assign(yo, campos);
     if (campos.nombre) local.guardar(`demo:nombre:${yo.id}`, campos.nombre);
+    if (campos.preferencias) local.guardar(`demo:preferencias:${yo.id}`, campos.preferencias);
+  }
+
+  /** Vaciar el chat (en la vista previa solo dura hasta recargar la página). */
+  async vaciarChat() {
+    await esperar(300);
+    this.mensajes = [];
+    this.vaciadoEn = ahoraIso();
+    this.vaciadoPor = this.usuario?.id ?? null;
+  }
+
+  async estadoChat() {
+    return { vaciadoEn: this.vaciadoEn ?? null, vaciadoPor: this.vaciadoPor ?? null };
   }
 
   async latido(enApp) {

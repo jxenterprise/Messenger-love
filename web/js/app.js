@@ -12,7 +12,7 @@ import { borrarPin, guardarPin, tienePin, verificarPin } from './candado.js';
 import { comprimirImagen } from './media.js';
 import { datosSuscripcion, desuscribir, estadoPermiso, soportaPush, suscribir } from './notificaciones.js';
 import { abrirCapa, aviso, cerrarTodasLasCapas, confirmar, crearElemento, dialogo, hoja, prepararSonido } from './interfaz.js';
-import { $, escaparHtml, esErrorDeRed, plataforma, vibrar } from './utilidades.js';
+import { $, escaparHtml, esErrorDeRed, plataforma, retrasar, vibrar } from './utilidades.js';
 import * as chat from './chat.js';
 import { BackendDemo } from './backend-demo.js';
 import { BackendSupabase } from './backend-supabase.js';
@@ -48,6 +48,7 @@ const ctx = {
   puedeVer: () => document.visibilityState === 'visible' && !app.bloqueado && app.pantalla === 'chat',
   puedeLeer: () => ctx.puedeVer() && app.panelesAbiertos === 0,
   ajustes: () => ({ sonido: local.leer('sonido', true) }),
+  guardarPreferencia: (clave, valor) => guardarPreferencia(clave, valor),
   tienePin: () => !!ctx.yo && tienePin(ctx.yo),
   puedeInstalar: () => !VISTA_PREVIA && !plataforma().standalone,
   abrirAjustes: () => abrirAjustes(),
@@ -115,7 +116,9 @@ function aplicarTema(preferencia) {
 }
 
 function alternarTema() {
-  aplicarTema(temaOscuroActivo() ? 'claro' : 'oscuro');
+  const nuevo = temaOscuroActivo() ? 'claro' : 'oscuro';
+  aplicarTema(nuevo);
+  guardarPreferencia('tema', nuevo);
 }
 
 window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change', () => {
@@ -128,16 +131,77 @@ window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change',
 /* ---------- Fondo del chat ---------- */
 async function aplicarFondo(tipo) {
   const zona = $('#zona-chat');
+  const pedido = tipo;
   if (tipo === 'foto') {
     const datos = await kv.leer('fondo-foto');
     if (datos?.buffer) {
       if (app.urlFondo) URL.revokeObjectURL(app.urlFondo);
       app.urlFondo = URL.createObjectURL(new Blob([datos.buffer], { type: datos.tipo }));
       zona.style.setProperty('--fondo-foto', `url("${app.urlFondo}")`);
-    } else tipo = 'corazones';
+    } else tipo = 'corazones'; // la foto vive solo en el celular donde se eligió
   }
   zona.dataset.fondo = tipo;
-  local.guardar('fondo', tipo);
+  local.guardar('fondo', pedido); // se recuerda lo que se eligió, aunque aquí no esté la foto
+}
+
+/* ==========================================================================
+   Ajustes que nunca se reinician
+   --------------------------------------------------------------------------
+   Cada ajuste se guarda en este celular Y en la base de datos
+   (perfiles.preferencias). Al entrar —aunque se haya cerrado sesión, borrado
+   los datos o cambiado de celular— vuelve todo tal como se dejó. Si no hay
+   señal, el cambio se sube solo cuando vuelve la conexión.
+   ========================================================================== */
+const CLAVES_PREFERENCIAS = ['tema', 'fondo', 'sonido', 'bloqueo-seg', 'velocidad-audio', 'avisos'];
+const clavePendientes = () => `preferencias-pendientes:${ctx.yo}`;
+
+function preferenciasLocales() {
+  const p = {};
+  for (const clave of CLAVES_PREFERENCIAS) {
+    const valor = local.leer(clave, null);
+    if (valor !== null) p[clave] = valor;
+  }
+  return p;
+}
+
+/** Guarda un ajuste para siempre: en este celular y en la nube. */
+function guardarPreferencia(clave, valor) {
+  local.guardar(clave, valor);
+  if (!ctx.yo) return;
+  local.guardar(clavePendientes(), true);
+  subirPreferencias();
+}
+
+const subirPreferencias = retrasar(async () => {
+  if (!ctx.yo || !backend || !local.leer(clavePendientes(), false)) return;
+  const preferencias = preferenciasLocales();
+  try {
+    await backend.actualizarMiPerfil({ preferencias });
+    const yo = ctx.miPerfil();
+    if (yo) yo.preferencias = preferencias;
+    local.borrar(clavePendientes());
+  } catch {
+    /* sin señal: se reintenta al volver la conexión o al entrar */
+  }
+}, 700);
+
+/** Al entrar: recupera los ajustes guardados en la nube (o sube los de este celular si quedaron cambios sin subir). */
+async function sincronizarPreferencias() {
+  const servidor = ctx.miPerfil()?.preferencias || {};
+  if (local.leer(clavePendientes(), false) || !Object.keys(servidor).length) {
+    // Cambios hechos sin señal, o la primera vez con esta versión: mandan los de este celular
+    if (Object.keys(preferenciasLocales()).length) {
+      local.guardar(clavePendientes(), true);
+      subirPreferencias();
+    }
+  } else {
+    if (servidor.tema && servidor.tema !== local.leer('tema', 'auto')) aplicarTema(servidor.tema);
+    if (servidor.fondo && servidor.fondo !== local.leer('fondo', 'corazones')) await aplicarFondo(servidor.fondo);
+    for (const clave of ['sonido', 'bloqueo-seg', 'velocidad-audio', 'avisos']) {
+      if (clave in servidor) local.guardar(clave, servidor[clave]);
+    }
+  }
+  await revisarAvisos();
 }
 
 /* ==========================================================================
@@ -186,7 +250,7 @@ async function registrarServiceWorker() {
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') registro.update().catch(() => {});
     });
-    asegurarSuscripcion();
+    // La suscripción push se renueva al entrar (revisarAvisos), cuando ya se sabe quién eres.
   } catch (error) {
     console.warn('No se pudo registrar el service worker:', error);
   }
@@ -208,20 +272,58 @@ function ofrecerActualizacion(sw) {
 const vapidListo = () => !!CONFIG.VAPID_PUBLIC_KEY;
 
 function notificacionesActivas() {
-  return !MODO_DEMO && soportaPush() && estadoPermiso() === 'granted' && !!local.leer('push-endpoint');
+  return (
+    !MODO_DEMO &&
+    soportaPush() &&
+    estadoPermiso() === 'granted' &&
+    local.leer('avisos', null) !== false &&
+    !!local.leer('push-endpoint')
+  );
 }
 
-/** Renueva la suscripción en silencio si el permiso ya estaba dado. */
+/** El service worker listo (sin quedarse esperando para siempre si no arrancó). */
+function serviceWorkerListo() {
+  return Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise((_, rechazar) => setTimeout(() => rechazar(new Error('El service worker no arrancó')), 10000)),
+  ]);
+}
+
+/**
+ * Renueva en silencio la suscripción de este celular y la deja a nombre de
+ * quien entró (si el celular era de la otra cuenta, pasa a esta).
+ * @returns {Promise<boolean>} true si quedó activa
+ */
 async function asegurarSuscripcion() {
-  if (MODO_DEMO || !ctx.yo || !vapidListo() || !soportaPush() || estadoPermiso() !== 'granted' || !app.registroSW) return;
+  if (MODO_DEMO || !ctx.yo || !vapidListo() || !soportaPush() || estadoPermiso() !== 'granted') return false;
   try {
-    const registro = await navigator.serviceWorker.ready;
+    const registro = await serviceWorkerListo();
     const suscripcion = await suscribir(registro, CONFIG.VAPID_PUBLIC_KEY);
     await backend.guardarSuscripcion(datosSuscripcion(suscripcion));
     local.guardar('push-endpoint', suscripcion.endpoint);
+    return true;
   } catch (error) {
     console.warn('No se pudo renovar la suscripción push:', error);
+    return false;
   }
+}
+
+/**
+ * Al entrar: los avisos quedan exactamente como cada uno los dejó.
+ * Activados → se renuevan en este celular. Apagados (aquí o en el otro
+ * celular) → se apagan aquí también. Nunca se apagan solos.
+ */
+async function revisarAvisos() {
+  if (MODO_DEMO) return;
+  const avisos = local.leer('avisos', null);
+  if (avisos === false) {
+    if (local.leer('push-endpoint')) await desuscribirEsteCelular();
+    return;
+  }
+  if (avisos === null && !local.leer('push-endpoint')) return; // nunca los activó
+  if (estadoPermiso() !== 'granted') return; // la tarjeta "Activa las notificaciones" lo pide
+  const activos = await asegurarSuscripcion();
+  if (activos && avisos === null) guardarPreferencia('avisos', true); // versión anterior: se guarda la elección
 }
 
 /** Se llama desde un toque: pide permiso y suscribe este dispositivo. */
@@ -259,10 +361,11 @@ async function activarNotificaciones() {
     return false;
   }
   try {
-    const registro = await navigator.serviceWorker.ready;
+    const registro = await serviceWorkerListo();
     const suscripcion = await suscribir(registro, CONFIG.VAPID_PUBLIC_KEY);
     await backend.guardarSuscripcion(datosSuscripcion(suscripcion));
     local.guardar('push-endpoint', suscripcion.endpoint);
+    guardarPreferencia('avisos', true); // queda así para siempre, hasta que lo apagues
     aviso('¡Listo! Te avisaré cuando te escriba 💌');
     return true;
   } catch (error) {
@@ -272,10 +375,17 @@ async function activarNotificaciones() {
   }
 }
 
+/** Apaga los avisos SOLO cuando la persona lo pide en Ajustes (queda guardado). */
 async function desactivarNotificaciones() {
+  await desuscribirEsteCelular();
+  guardarPreferencia('avisos', false);
+}
+
+/** Deja de recibir avisos en este celular. */
+async function desuscribirEsteCelular() {
   try {
-    if (app.registroSW) {
-      const registro = await navigator.serviceWorker.ready;
+    if ('serviceWorker' in navigator) {
+      const registro = await serviceWorkerListo();
       const endpoint = await desuscribir(registro);
       await backend.borrarSuscripcion(endpoint || local.leer('push-endpoint'));
     }
@@ -312,7 +422,13 @@ function mostrarTarjetaNotificaciones() {
       alCerrar: posponerTarjeta,
     });
   }
-  if (MODO_DEMO || (soportaPush() && estadoPermiso() === 'default') || (estadoPermiso() === 'granted' && !local.leer('push-endpoint'))) {
+  // Si los apagó a propósito en Ajustes, no se le vuelve a insistir.
+  const losApago = local.leer('avisos', null) === false;
+  if (
+    MODO_DEMO ||
+    (!losApago && soportaPush() && estadoPermiso() === 'default') ||
+    (!losApago && estadoPermiso() === 'granted' && !local.leer('push-endpoint'))
+  ) {
     return chat.mostrarTarjeta({
       icono: 'campana',
       titulo: 'Activa las notificaciones',
@@ -567,6 +683,8 @@ async function entrarConUsuario(usuario, { recienEntrado = false } = {}) {
   app.chatAbierto = true;
   chat.abrirChat();
   aplicarFondo(local.leer('fondo', 'corazones'));
+  // Ajustes y avisos tal como se dejaron (desde la nube si hace falta)
+  sincronizarPreferencias().catch((error) => console.warn('No se pudieron recuperar los ajustes:', error));
 
   if (recienEntrado) {
     desbloquear();
@@ -578,22 +696,24 @@ async function entrarConUsuario(usuario, { recienEntrado = false } = {}) {
   else mostrarPin();
 }
 
-/** Sale sin preguntar (PIN olvidado, demasiados intentos o PIN cambiado). */
+/**
+ * Sale sin preguntar (cerrar sesión, PIN olvidado, demasiados intentos o PIN
+ * cambiado). NO se pierde nada: los mensajes guardados, el borrador, los
+ * ajustes y los avisos se quedan (los avisos siguen llegando a este celular).
+ * Solo se olvida el PIN guardado aquí, para que haya que entrar de nuevo.
+ */
 async function forzarSalida(mensaje = '') {
   const yo = ctx.yo;
   cerrarTodasLasCapas();
   chat.cerrarChat();
   app.chatAbierto = false;
   detenerLatido();
-  await desactivarNotificaciones();
+  ctx.yo = null; // primero: así nada intenta guardar a nombre de la sesión que se cierra
   await backend.salir();
   if (yo) {
     borrarPin(yo);
     local.borrar(claveVersionPin(yo));
-    await Promise.all([kv.borrar(`cache:${yo}`), kv.borrar(`perfiles:${yo}`)]);
-    local.borrar(`borrador:${yo}`);
   }
-  ctx.yo = null;
   ctx.perfiles.clear();
   app.bloqueado = false;
   // Con aviso (por ejemplo, "El PIN se cambió") queda elegida la misma persona
@@ -603,17 +723,11 @@ async function forzarSalida(mensaje = '') {
 async function cerrarSesion() {
   const si = await confirmar({
     titulo: '¿Cerrar sesión?',
-    texto: 'Se borran de este dispositivo los mensajes guardados. En la nube todo sigue a salvo; vuelves a entrar con tu usuario y el PIN.',
+    texto: 'No se borra nada: tus mensajes, tus ajustes y los avisos se quedan como están. Vuelves a entrar tocando tu nombre y poniendo el PIN.',
     aceptar: 'Cerrar sesión',
-    peligro: true,
   });
   if (!si) return;
-  const yo = ctx.yo;
   await forzarSalida();
-  if (yo) {
-    await kv.borrar(`bandeja:${yo}`);
-    local.borrar(`push-pendientes:${yo}`);
-  }
 }
 
 /**
@@ -905,7 +1019,7 @@ function abrirAjustes() {
           <h3>Cuenta</h3>
           <div class="grupo-ajustes">
             <div class="opcion">${icono('usuario')}<span class="textos"><strong>@${escaparHtml(yo?.usuario || 'sin usuario')}</strong><span>${pareja ? `Chat privado con ${escaparHtml(pareja.nombre)}` : 'Chat privado'}</span></span></div>
-            <button type="button" class="opcion peligro" data-accion="salir">${icono('salir')}<span class="textos"><strong>Cerrar sesión</strong><span>Borra los mensajes guardados en este dispositivo.</span></span></button>
+            <button type="button" class="opcion peligro" data-accion="salir">${icono('salir')}<span class="textos"><strong>Cerrar sesión</strong><span>No se borra nada; vuelves a entrar con tu nombre y el PIN.</span></span></button>
           </div>
         </section>
 
@@ -964,7 +1078,7 @@ function abrirAjustes() {
       aviso('No se pudo guardar. Revisa tu conexión.');
     }
   });
-  panel.querySelector('#interruptor-sonido').addEventListener('change', (e) => local.guardar('sonido', e.currentTarget.checked));
+  panel.querySelector('#interruptor-sonido').addEventListener('change', (e) => guardarPreferencia('sonido', e.currentTarget.checked));
 
   // Segmentos y acciones
   panel.addEventListener('click', async (e) => {
@@ -976,14 +1090,16 @@ function abrirAjustes() {
       const marcar = () => grupo.querySelectorAll('[data-valor]').forEach((b) => b.setAttribute('aria-pressed', String(b === opcion)));
       if (grupo.dataset.grupo === 'tema') {
         aplicarTema(valor);
+        guardarPreferencia('tema', valor);
         marcar();
       } else if (grupo.dataset.grupo === 'bloqueo') {
-        local.guardar('bloqueo-seg', Number(valor));
+        guardarPreferencia('bloqueo-seg', Number(valor));
         marcar();
       } else if (grupo.dataset.grupo === 'fondo') {
         if (valor === 'foto') $('#selector-fondo').click();
         else {
           await aplicarFondo(valor);
+          guardarPreferencia('fondo', valor);
           marcar();
         }
       }
@@ -1033,6 +1149,7 @@ function enlazarSelectoresDeAjustes() {
       const r = await comprimirImagen(archivo, { maxLado: 1600, calidad: 0.8 });
       await kv.guardar('fondo-foto', { buffer: await r.blob.arrayBuffer(), tipo: r.tipo });
       await aplicarFondo('foto');
+      guardarPreferencia('fondo', 'foto');
       document.querySelectorAll('[data-grupo="fondo"] [data-valor]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.valor === 'foto')));
       aviso('Fondo actualizado');
     } catch (error) {
@@ -1106,6 +1223,8 @@ async function arrancar() {
   window.addEventListener('pagehide', () => {
     if (ctx.yo) backend?.latidoAlSalir?.();
   });
+  // Ajustes cambiados sin señal: se suben solos cuando vuelve la conexión
+  window.addEventListener('online', () => subirPreferencias());
 
   let usuario = null;
   try {

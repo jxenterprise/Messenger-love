@@ -173,7 +173,8 @@
               <button type="button" class="boton-icono" id="boton-emojis" aria-label="Emojis" data-icono="emoji"></button>
               <label for="entrada-mensaje" class="solo-lector">Mensaje</label>
               <textarea id="entrada-mensaje" rows="1" maxlength="5000" placeholder="Escribe un mensaje…" autocomplete="off" spellcheck="true"></textarea>
-              <button type="button" class="boton-icono" id="boton-foto" aria-label="Enviar una foto" data-icono="foto"></button>
+              <button type="button" class="boton-icono" id="boton-camara" aria-label="Tomar una foto con la cámara" data-icono="camara"></button>
+              <button type="button" class="boton-icono" id="boton-foto" aria-label="Enviar una foto de la galería" data-icono="foto"></button>
             </div>
             <button type="button" class="boton-principal" id="boton-principal" aria-label="Grabar nota de voz"></button>
           </div>
@@ -212,6 +213,8 @@
 
   <!-- Selectores de archivos (invisibles) -->
   <input type="file" id="selector-fotos" accept="image/*" multiple hidden>
+  <!-- Abre directo la cámara trasera del celular (Android e iPhone) -->
+  <input type="file" id="selector-camara" accept="image/*" capture="environment" hidden>
   <input type="file" id="selector-avatar" accept="image/*" hidden>
   <input type="file" id="selector-fondo" accept="image/*" hidden>
 </body>

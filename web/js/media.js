@@ -72,7 +72,28 @@ function miniatura(fuente, ancho, alto) {
  * Comprime una foto: máximo `maxLado` píxeles, WebP de buena calidad.
  * @returns {Promise<{blob: Blob, tipo: string, ext: string, ancho: number, alto: number, miniatura: string|null}>}
  */
-export async function comprimirImagen(archivo, { maxLado = 1600, calidad = 0.82, cuadrado = false } = {}) {
+/** Ninguna foto que se envía pesa más que esto (las de la cámara salen de 5 a 20 MB). */
+export const MAX_BYTES_FOTO = 5 * 1024 * 1024;
+
+/**
+ * Comprime una foto (galería o cámara) a WebP y GARANTIZA que pese menos de
+ * maxBytes: si no cabe, la vuelve a comprimir más pequeña y con menos calidad.
+ * Normalmente queda entre 0,1 y 0,6 MB al primer intento.
+ */
+export async function comprimirImagen(archivo, { maxLado = 1600, calidad = 0.82, cuadrado = false, maxBytes = MAX_BYTES_FOTO } = {}) {
+  let lado = maxLado;
+  let q = calidad;
+  let r = await comprimirUnaVez(archivo, { maxLado: lado, calidad: q, cuadrado });
+  for (let intento = 1; r.blob.size > maxBytes && intento <= 5; intento++) {
+    lado = Math.max(480, Math.round(lado * 0.75));
+    q = Math.max(0.45, q - 0.1);
+    r = await comprimirUnaVez(archivo, { maxLado: lado, calidad: q, cuadrado });
+  }
+  if (r.blob.size > maxBytes) throw new Error('La foto quedó muy pesada. Intenta con otra.');
+  return r;
+}
+
+async function comprimirUnaVez(archivo, { maxLado, calidad, cuadrado }) {
   const fuente = await abrirImagen(archivo);
   const w0 = fuente.width;
   const h0 = fuente.height;

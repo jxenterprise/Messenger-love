@@ -143,6 +143,8 @@ export function iniciarChat(contexto) {
     entrada: $('#entrada-mensaje'),
     botonEmojis: $('#boton-emojis'),
     botonFoto: $('#boton-foto'),
+    botonCamara: $('#boton-camara'),
+    selectorCamara: $('#selector-camara'),
     principal: $('#boton-principal'),
     barraGrabacion: $('#barra-grabacion'),
     reloj: $('#reloj-grabacion'),
@@ -171,6 +173,7 @@ export async function abrirChat() {
     onMensaje: alRecibirMensaje,
     onPresencia: alCambiarPresencia,
     onEscribiendo: alEscribirPareja,
+    onChatVaciado: (vaciadoEn, vaciadoPor) => aplicarVaciado(vaciadoEn, vaciadoPor),
     onEstado: (s) => {
       if (s === 'SUBSCRIBED') sincronizar();
     },
@@ -204,7 +207,8 @@ export function cerrarChat() {
 async function cargarInicial() {
   const cache = await kv.leer(`cache:${ctx.yo}`);
   if (cache?.mensajes?.length) {
-    for (const f of cache.mensajes) aplicarSilencioso(f);
+    const vaciado = Date.parse(local.leer(`vaciado:${ctx.yo}`, '') || '') || 0;
+    for (const f of cache.mensajes) if (!vaciado || Date.parse(f.creado_en) > vaciado) aplicarSilencioso(f);
     estado.ultimaSync = cache.ultimaSync || estado.ultimaSync;
   }
   await cargarBandeja();
@@ -227,6 +231,7 @@ async function cargarInicial() {
   } catch (error) {
     if (!esErrorDeRed(error)) console.warn('No se pudieron cargar los mensajes:', error);
   }
+  await revisarVaciado(); // por si el chat se vació mientras este celular estaba apagado
   actualizarInicioChat();
   setTimeout(() => {
     estado.listoParaAntiguos = true;
@@ -1368,7 +1373,7 @@ const velocidadTexto = () => `${String(velocidadActual()).replace('.', ',')}×`;
 function cambiarVelocidad() {
   const actual = velocidadActual();
   const siguiente = VELOCIDADES[(VELOCIDADES.indexOf(actual) + 1) % VELOCIDADES.length];
-  local.guardar('velocidad-audio', siguiente);
+  ctx.guardarPreferencia('velocidad-audio', siguiente);
   if (reproduccion) reproduccion.audio.playbackRate = siguiente;
   el.mensajes.querySelectorAll('.velocidad').forEach((b) => {
     b.textContent = velocidadTexto();
@@ -1528,6 +1533,7 @@ export function alVolver() {
   if (claveDia(Date.now()) !== estado.diaRender) renderizarTodo({ mantenerPosicion: !estaAbajo() });
   ctx.backend.reconectar();
   sincronizar();
+  revisarVaciado();
   procesarBandeja();
   reintentarPushes();
   refrescarPerfiles();
@@ -1814,6 +1820,7 @@ async function irAMensaje(id, cidConocido) {
 export function abrirMenuCabecera() {
   const opciones = [
     ['buscar', 'buscar', 'Buscar en el chat'],
+    ['borrar', 'basura', 'Borrar mensajes'],
     ['ajustes', 'ajustes', 'Ajustes'],
   ];
   if (ctx.tienePin()) opciones.push(['bloquear', 'candado', 'Bloquear ahora']);
@@ -1831,11 +1838,112 @@ export function abrirMenuCabecera() {
     const accion = b.dataset.accion;
     luego(() => {
       if (accion === 'buscar') abrirBusqueda();
+      else if (accion === 'borrar') abrirBorrarMensajes();
       else if (accion === 'ajustes') ctx.abrirAjustes();
       else if (accion === 'bloquear') ctx.bloquearAhora();
       else if (accion === 'instalar') ctx.instalar();
     });
   });
+}
+
+/* ==========================================================================
+   Borrar mensajes: uno solo o vaciar todo el chat para los dos
+   ========================================================================== */
+function abrirBorrarMensajes() {
+  const gesto = plataforma().tactil ? 'Mantén presionado' : 'Haz clic derecho en';
+  const { capa, cerrar } = hoja(
+    `<h2>Borrar mensajes</h2>
+    <ol class="pasos">
+      <li><span><strong>Uno solo:</strong> ${gesto} un mensaje tuyo y toca <strong>Eliminar para los dos</strong>.</span></li>
+      <li><span><strong>Todo el chat:</strong> se borran todos los mensajes, fotos y notas de voz de los dos celulares. No se puede deshacer.</span></li>
+    </ol>
+    <button type="button" class="boton peligro ancho" data-accion="vaciar">${icono('basura')}Vaciar todo el chat</button>
+    <button type="button" class="boton fantasma ancho" data-cerrar>Cancelar</button>`,
+    'Borrar mensajes',
+  );
+  capa.querySelector('[data-accion="vaciar"]').addEventListener('click', () => {
+    cerrar();
+    luego(vaciarChat);
+  });
+}
+
+/** Vacía el chat para los dos, con doble confirmación. */
+async function vaciarChat() {
+  const pareja = nombreDe(ctx.pareja()?.id);
+  const si = await confirmar({
+    titulo: '¿Vaciar todo el chat?',
+    texto: `Se borrarán todos los mensajes, fotos y notas de voz, también del celular de ${pareja}.`,
+    aceptar: 'Sí, vaciar',
+    peligro: true,
+  });
+  if (!si) return;
+  const seguro = await confirmar({
+    titulo: '¿Segurísimo? 🥺',
+    texto: 'Esto no se puede deshacer: los mensajes no se pueden recuperar.',
+    aceptar: 'Vaciar para los dos',
+    cancelar: 'No, mejor no',
+    peligro: true,
+  });
+  if (!seguro) return;
+  const quitar = aviso('Vaciando el chat…', { duracion: 0 });
+  try {
+    await ctx.backend.vaciarChat();
+    // La hora la pone el servidor (así los dos celulares cortan en el mismo punto)
+    const { vaciadoEn } = await ctx.backend.estadoChat().catch(() => ({}));
+    quitar?.();
+    aplicarVaciado(vaciadoEn || new Date().toISOString(), ctx.yo);
+    aviso('Listo: el chat quedó vacío para los dos');
+  } catch (error) {
+    quitar?.();
+    aviso(esErrorDeRed(error) ? 'Necesitas internet para vaciar el chat.' : error?.message || 'No se pudo vaciar el chat.');
+  }
+}
+
+/** Pregunta al servidor si el chat se vació (por si este celular no estaba conectado). */
+async function revisarVaciado() {
+  if (!estado.abierto) return;
+  try {
+    const { vaciadoEn, vaciadoPor } = await ctx.backend.estadoChat();
+    if (vaciadoEn) aplicarVaciado(vaciadoEn, vaciadoPor);
+  } catch {
+    /* sin señal: se revisa la próxima vez */
+  }
+}
+
+/**
+ * Quita de la pantalla y de lo guardado todo lo enviado hasta `vaciadoEn`.
+ * Lo que está en la bandeja (escrito sin señal, aún sin enviar) se conserva.
+ */
+function aplicarVaciado(vaciadoEn, vaciadoPor) {
+  const corte = Date.parse(vaciadoEn);
+  if (!estado.abierto || !corte) return;
+  const clave = `vaciado:${ctx.yo}`;
+  const previo = Date.parse(local.leer(clave, '') || '') || 0;
+  if (previo >= corte) return; // ya se aplicó
+  local.guardar(clave, vaciadoEn);
+  let quitados = 0;
+  for (const [cid, m] of estado.mensajes) {
+    if (m.creado_en && Date.parse(m.creado_en) <= corte) {
+      if (m._urlLocal) URL.revokeObjectURL(m._urlLocal);
+      estado.mensajes.delete(cid);
+      quitados++;
+    }
+  }
+  estado.porId.clear();
+  for (const [cid, m] of estado.mensajes) if (m.id) estado.porId.set(m.id, cid);
+  estado.hayMasAntiguos = false;
+  estado.sinLeerAbajo = 0;
+  if (estado.respondiendoA || estado.editando) cancelarContexto();
+  detenerAudio();
+  reconstruirOrden();
+  renderizarTodo();
+  bajarAlFondo(false);
+  actualizarInicioChat();
+  actualizarFranjas();
+  guardarCacheRetrasado();
+  // Las fotos guardadas para ver sin señal ya no se necesitan
+  if ('caches' in window) caches.delete('eyj-media-v1').catch(() => {});
+  if (quitados && vaciadoPor && vaciadoPor !== ctx.yo) aviso(`${nombreDe(vaciadoPor)} vació el chat`);
 }
 
 /* ==========================================================================
@@ -1875,6 +1983,14 @@ function enlazarEventos() {
     if (!el.panelEmojis.hidden && !e.target.closest('#panel-emojis, #boton-emojis')) cerrarEmojis();
   });
   el.botonFoto.addEventListener('click', () => el.selectorFotos.click());
+  // Cámara: solo en celulares y tablets (en el computador no abre la cámara)
+  el.botonCamara.hidden = !plataforma().tactil;
+  el.botonCamara.addEventListener('click', () => el.selectorCamara.click());
+  el.selectorCamara.addEventListener('change', () => {
+    const archivos = [...el.selectorCamara.files];
+    el.selectorCamara.value = '';
+    abrirPreviaFotos(archivos); // misma vista previa: se ve la foto, se agrega un mensaje y se envía
+  });
   el.selectorFotos.addEventListener('change', () => {
     const archivos = [...el.selectorFotos.files];
     el.selectorFotos.value = '';
