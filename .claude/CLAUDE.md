@@ -38,9 +38,13 @@ Agregar una entrada al final de cada sesión, ANTES de publicar.
 - **Vie 6 nov 2026, 11:15 a. m. → 12:15 p. m.** — JX subió el proyecto a GitHub y conectó Cloudflare Pages; la página daba 404. Diagnóstico: Cloudflare publicaba la raíz del repo. Arreglos: `wrangler.toml` (solo `web/`), pantalla "Casi listo" en vez del bot, service worker para abrir sin señal, aviso de clave secreta, `CLAUDE.md` escondido en `.claude/`. PR #1 fusionado → versión 1.0.1 publicada.
 - **Sáb 7 nov 2026, ~12:00 a. m. → 1:30 a. m.** — Carpeta local de JX (Windows) conectada a GitHub con git. Ingreso con usuario + mismo PIN de 4 números (SQL, función `entrar-con-pin`, app, `03_pin.sql`). Las pruebas pasaron a Node (PGlite + Edge): 257 en total. Python de JX dañado → instaló 3.15. Versión 1.1.0 publicada en `main`.
 - **Dom 8 nov 2026, ~12:30 a. m. → 1:10 a. m.** — Supabase configurado paso a paso con JX: proyecto `messenger-eyj`, SQL 01, cuentas con correos reales + usuarios puestos con SQL, registro cerrado, PIN, secretos VAPID, las 2 funciones (Verify JWT apagado, verificado con curl). App conectada (versión 1.1.1) y probada contra el proyecto real con un usuario inventado. La publicación quedó para que JX la autorice. **Siguiente:** que JX pruebe con el PIN real (2 ventanas en localhost:8080), instalar en los 2 celulares y activar avisos.
+- **Dom 8 nov 2026, ~1:10 a. m. → 1:35 a. m.** — Documentación con fecha y hora (regla nueva de JX: documentar ANTES de publicar). El clasificador de permisos bloqueaba `git push`; JX agregó la regla `PowerShell(git push:*)` en `.claude/settings.local.json` (solo su PC) y desde ahí Claude sube con PowerShell. Se creó `.claude/settings.json` con permisos de solo lectura. Versión 1.1.1 publicada y comprobada en producción.
+- **Dom 8 nov 2026, ~1:35 a. m. → 2:10 a. m.** — **v1.4.** JX pidió: (1) botones "Soy Jampier / Soy Estrellita" en vez de escribir el usuario; (2) versión visible bajo "Nuestro rincón privado" con numeración 1.0…1.50 → 2.0; (3) revisar "al revés" — no era un error de cuentas: arriba sale la pareja (como WhatsApp); se agregó saludo "Hola, X 💜 Estás hablando con Y" y placeholder "Escríbele a Y…"; (4) revisión completa con prioridad en SUS celulares: **Redmi Note 14 Pro+ (Jampier) y iPhone 12 Pro Max (Estrellita)**. Arreglados: fechas pegadas apiladas al deslizar, lluvia/avisos encima del PIN de bloqueo, foco inmediato del PIN (iOS abre el teclado). Pruebas nuevas de dispositivos (WebKit para el iPhone).
 
 ## Preferencias de JX (respetarlas siempre)
 
+- **Prioridad de diseño: los celulares de la pareja — Redmi Note 14 Pro+ (Jampier, Chrome, ≈407×904) y iPhone 12 Pro Max (Estrellita, Safari, 428×926, notch 47 / barra 34).** Después PC y demás. Probar siempre con `npm run prueba:celulares` (WebKit: `npm run instalar:safari`).
+- **Versión visible y numeración:** `CONFIG.VERSION` = '1.N' (se muestra "v1.N" bajo "Nuestro rincón privado"), de 1.0 a 1.50 y luego 2.0. Subirla en cada entrega junto con `VERSION` de `web/sw.js` ('eyj-v1.N'). Equivalencias viejas: 1.0.0=v1.0, 1.0.1=v1.1, 1.1.0=v1.2, 1.1.1=v1.3.
 - **Antes de publicar (push a GitHub), documentar TODO lo nuevo con fecha y hora:** Novedades y "Estado actual" del README, y la bitácora de arriba. Lo pidió explícitamente el 8 nov 2026.
 
 - Todo en español: interfaz, comentarios, nombres de variables y funciones.
@@ -58,7 +62,8 @@ Agregar una entrada al final de cada sesión, ANTES de publicar.
 .gitignore                artefactos de las pruebas (node_modules, capturas, .deno…)
 wrangler.toml             Cloudflare Pages: publicar solo web/ (ver arriba)
 web/                      ← lo único que publica Cloudflare Pages (Build output directory)
-  index.html              pantallas: carga, conexión ("Casi listo"), entrada (usuario + PIN), chat, PIN de bloqueo
+  index.html              pantallas: carga, conexión ("Casi listo"), entrada en 2 pasos ("¿Quién eres?" con botones
+                          de CONFIG.PERSONAS → solo PIN; #usuario es un input oculto), chat, PIN de bloqueo
   css/styles.css          tokens claro (piel+lila) / oscuro (negro+rojo suave), componentes
   js/config.js            ✏️ URL + publishable key de Supabase + VAPID pública; abajo: limpieza de lo pegado,
                           CLAVE_PELIGROSA (sb_secret_/service_role → aviso rojo, no se usa), CONECTADA,
@@ -97,7 +102,8 @@ Si cambias algo aquí, cambia los tres lugares.
 - `perfiles(id, nombre, avatar_path, notif_con_texto, en_app, visto_en, …)` — el cliente solo puede actualizar `nombre`, `avatar_path`, `notif_con_texto`.
 - `mensajes(id, client_id unique, remitente, tipo texto|imagen|audio|te_extrano, contenido, media_path, media_meta, responde_a, reacciones jsonb, editado_en, borrado, entregado_en, leido_en, notificado_en, creado_en, actualizado_en)` — el cliente solo inserta (`upsert … onConflict client_id, ignoreDuplicates`); todo lo demás va por RPC.
 - `perfiles.usuario` (solo lectura para la app). RPC del ingreso: `verificar_acceso(p_usuario, p_pin) → jsonb` (solo service_role), `cambiar_pin(p_actual, p_nuevo) → jsonb {ok, version | motivo}`, `version_pin() → int`. Motivos: `datos` (con `restantes`), `esperar` (con `segundos`), `bloqueado`, `sin-pin`.
-- Backends (`backend-supabase.js` y `backend-demo.js`): `entrar(usuario, pin) → {usuario, version}`, `cambiarPin(actual, nuevo) → version`, `versionPin()`; el demo además `pinDemo()` (1234).
+- Backends (`backend-supabase.js` y `backend-demo.js`): `entrar(usuario, pin) → {usuario, version}`, `cambiarPin(actual, nuevo) → version`, `versionPin()`; el demo además `pinDemo()` (1234, se muestra en #pin-demo).
+- `CONFIG.PERSONAS` = `[{usuario, nombre}]` en `web/js/config.js`: los botones "Soy …". `usuario` debe ser igual a `perfiles.usuario` (la app no puede leer perfiles sin sesión, por eso van en config). Hoy: jampier / estrellita.
 - RPC: `latido(p_en_app)`, `marcar_entregados()`, `marcar_leidos()`, `reaccionar(p_mensaje, p_emoji)`, `editar_mensaje(p_mensaje, p_texto)` (15 min), `borrar_mensaje(p_mensaje) → media_path`, `guardar_suscripcion(p_endpoint, p_p256dh, p_auth, p_dispositivo)`, `ping()`.
 - `privado.es_miembro()` (security definer, esquema no expuesto) se usa en todas las políticas.
 - Storage: bucket privado `media`, rutas `<uid>/<client_id>.<ext>` y `<uid>/avatar-<ts>.<ext>`; URLs firmadas de 6 h.
@@ -119,7 +125,8 @@ Si cambias algo aquí, cambia los tres lugares.
 - `prueba_sql.mjs` — 136 pruebas de RLS/RPC/PIN con **PGlite** (PostgreSQL en Node, sin instalar nada) y `supabase_simulado.sql`. Reemplazó a `prueba_sql.py`.
 - `prueba_entrar.mjs` (23) — `entrar-con-pin` empaquetada con esbuild + supabase-js real; `verificar_acceso` responde PGlite.
 - `prueba_funcion.mjs` (34) y `e2e_deno.mjs` (Deno real) — `enviar-push`; descifra con `http_ece` y verifica VAPID.
-- `prueba_ingreso.mjs` (44) y `prueba_app.mjs` (18) — navegador (Edge por defecto, `apoyo_navegador.mjs`): ingreso, bloqueo, cambio de PIN, app conectada a un Supabase imitado (dominio `eyj.prueba` + `--unsafely-treat-insecure-origin-as-secure` porque PBKDF2 necesita contexto seguro), "Casi listo", clave secreta, y la app completa en demo. Reemplazaron a los `.py`.
+- `prueba_pantallas.mjs` (90: 10 tamaños × pantallas) y `prueba_celulares.mjs` (70+: Redmi Note 14 Pro+ y iPhone 12 Pro Max con WebKit, notch/barra simulados con `--seguro-arriba/abajo`). `cerrarSorpresas()` en `apoyo_navegador.mjs` cierra el "Te extraño" sorpresa del demo (~26 s) si aparece. WebKit en Windows no aplica pesos de la fuente variable Nunito (negritas se ven delgadas solo en la prueba; el iPhone real sí).
+- `prueba_ingreso.mjs` (49) y `prueba_app.mjs` (18) — navegador (Edge por defecto, `apoyo_navegador.mjs`): ingreso, bloqueo, cambio de PIN, app conectada a un Supabase imitado (dominio `eyj.prueba` + `--unsafely-treat-insecure-origin-as-secure` porque PBKDF2 necesita contexto seguro), "Casi listo", clave secreta, y la app completa en demo. Reemplazaron a los `.py`.
 - `prueba_sin_senal.mjs` + `servidor_cloudflare.mjs` — abrir sin señal con las redirecciones de Cloudflare. `npm run ver` sirve `web/` en http://localhost:8080.
 - `prueba_generador.mjs` — generador de claves VAPID.
 - En Windows los archivos están con CRLF (core.autocrlf=true); usar `fileURLToPath`/`pathToFileURL`, nunca `URL.pathname`, para rutas.

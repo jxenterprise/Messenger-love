@@ -25,7 +25,7 @@ try {
   await p.goto(web.url, { waitUntil: 'networkidle' });
   await p.waitForSelector('#pantalla-entrada:not([hidden])');
   await p.screenshot({ path: `${capturas}app-01-entrada.png` });
-  await p.fill('#usuario', 'jampier');
+  await p.click('[data-persona="jampier"]');
   await p.fill('#pin-entrada', '1234');
   await p.waitForSelector('#pantalla-chat:not([hidden])', { timeout: 8000 });
   await p.waitForTimeout(2200);
@@ -131,7 +131,8 @@ try {
   const pc = await escritorio.newPage();
   const erroresPc = vigilarConsola(pc);
   await pc.goto(web.url, { waitUntil: 'networkidle' });
-  await pc.click('[data-demo="estrellita"]');
+  await pc.click('[data-persona="estrellita"]');
+  await pc.keyboard.type('1234'); // en el computador el PIN se escribe con el teclado
   await pc.waitForSelector('#pantalla-chat:not([hidden])', { timeout: 8000 });
   await pc.waitForTimeout(1800);
   await pc.hover('#mensajes .fila.mia .burbuja >> nth=-1');

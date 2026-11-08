@@ -8,7 +8,7 @@
 //
 //  Uso (desde desarrollo/): node prueba_ingreso.mjs   (o: npm run prueba:ingreso)
 // ============================================================================
-import { abrirNavegador, carpetaCapturas, configSinSupabase, crearRevisor, levantarWeb, nuevoContexto, pantallasVisibles, vigilarConsola } from './apoyo_navegador.mjs';
+import { abrirNavegador, carpetaCapturas, configSinSupabase, crearRevisor, levantarWeb, nuevoContexto, pantallasVisibles, vigilarConsola, cerrarSorpresas } from './apoyo_navegador.mjs';
 
 const { ok, terminar } = crearRevisor();
 const capturas = carpetaCapturas();
@@ -27,18 +27,30 @@ const textoError = (pagina) => pagina.textContent('#error-entrada');
 
 try {
   /* ======================= 1) Modo demo ======================= */
-  console.log('1) Modo demo: entrar con usuario + PIN');
+  console.log('1) Modo demo: elegir quién eres + PIN');
   let contexto = await nuevoContexto(navegador);
   let p = await contexto.newPage();
   let errores = vigilarConsola(p);
+  await cerrarSorpresas(p);
   await p.goto(web.url, { waitUntil: 'networkidle' });
   await p.waitForSelector('#pantalla-entrada:not([hidden])');
-  ok(await p.isVisible('#usuario') && await p.isVisible('#pin-entrada'), 'la entrada pide usuario y PIN (ya no correo y contraseña)');
+  const botonesPersona = await p.$$eval('#botones-persona [data-persona]', (bs) =>
+    bs.map((b) => `${b.dataset.persona}:${b.textContent.replace(/\s+/g, ' ').trim()}`),
+  );
+  ok(JSON.stringify(botonesPersona) === JSON.stringify(['jampier:J Soy Jampier', 'estrellita:E Soy Estrellita']), `primero pregunta "¿Quién eres?" con 2 botones (${botonesPersona.join(' | ')})`);
+  ok(!(await p.isVisible('#formulario-entrada')), 'todavía no pide el PIN ni hay que escribir ningún nombre');
+  ok((await p.textContent('.marca [data-version]')) === 'v1.4', 'la versión v1.4 se ve debajo de "Nuestro rincón privado"');
   ok(await p.isVisible('#caja-demo'), 'en el computador se ve la ayuda de la vista previa');
-  ok((await p.getAttribute('#pin-entrada', 'inputmode')) === 'numeric', 'el PIN abre el teclado de números en el celular');
   await p.screenshot({ path: `${capturas}ingreso-01-entrada.png` });
 
-  await p.fill('#usuario', 'jampier');
+  await p.click('[data-persona="estrellita"]');
+  ok((await p.textContent('#nombre-entrada')) === 'Hola, Estrellita', 'al tocar "Soy Estrellita" saluda y pide solo el PIN');
+  await p.click('#cambiar-persona');
+  ok(await p.isVisible('#paso-persona') && !(await p.isVisible('#formulario-entrada')), '"No soy yo" vuelve a "¿Quién eres?"');
+  await p.click('[data-persona="jampier"]');
+  ok((await p.getAttribute('#pin-entrada', 'inputmode')) === 'numeric', 'el PIN abre el teclado de números en el celular');
+  ok(await p.evaluate(() => document.activeElement?.id === 'pin-entrada'), 'el cursor queda listo en el PIN');
+  await p.screenshot({ path: `${capturas}ingreso-01b-pin.png` });
   await p.fill('#pin-entrada', '9999');
   await p.waitForFunction(() => document.querySelector('#error-entrada').textContent.length > 0);
   ok((await textoError(p)).includes('Usuario o PIN incorrectos'), 'PIN equivocado: "Usuario o PIN incorrectos" (entra solo al 4.º número)');
@@ -47,10 +59,9 @@ try {
   await p.fill('#pin-entrada', '12ab');
   ok((await p.inputValue('#pin-entrada')) === '12', 'el campo del PIN solo acepta números');
   await p.fill('#pin-entrada', '');
-  await p.fill('#usuario', 'JAMPIER ');
   await p.fill('#pin-entrada', '1234');
   await p.waitForSelector('#pantalla-chat:not([hidden])', { timeout: 8000 });
-  ok(true, 'jampier + 1234 → entra directo al chat (sin pasos extra; mayúsculas y espacios no importan)');
+  ok(true, 'Soy Jampier + 1234 → entra directo al chat (sin pasos extra)');
   await p.waitForTimeout(1500);
   await p.screenshot({ path: `${capturas}ingreso-03-chat.png` });
 
@@ -109,10 +120,11 @@ try {
   await escribirPin(p, '5826');
   await p.waitForSelector('#pantalla-entrada:not([hidden])', { timeout: 5000 });
   ok((await textoError(p)).includes('El PIN se cambió'), 'pide entrar de nuevo con el PIN nuevo');
-  ok((await p.inputValue('#usuario')) === 'jampier', 'recuerda el último usuario para no escribirlo otra vez');
+  ok((await p.textContent('#nombre-entrada')) === 'Hola, Jampier' && (await p.isVisible('#pin-entrada')), 'queda elegido Jampier: solo hay que escribir el PIN nuevo');
 
-  console.log('5) La otra cuenta y los botones rápidos');
-  await p.fill('#usuario', 'estrellita');
+  console.log('5) La otra cuenta');
+  await p.click('#cambiar-persona');
+  await p.click('[data-persona="estrellita"]');
   await p.fill('#pin-entrada', '5826');
   await p.waitForSelector('#pantalla-chat:not([hidden])', { timeout: 8000 });
   ok((await p.textContent('#nombre-pareja')) === 'Jampier', 'estrellita entra con el mismo PIN y ve a Jampier como su pareja');
@@ -122,10 +134,8 @@ try {
   await p.click('.panel [data-accion="salir"]');
   await p.click('.dialogo .boton.peligro');
   await p.waitForSelector('#pantalla-entrada:not([hidden])');
-  ok(true, 'cerrar sesión vuelve a la entrada');
-  await p.click('[data-demo="jampier"]');
-  await p.waitForSelector('#pantalla-chat:not([hidden])', { timeout: 8000 });
-  ok(true, 'el botón "Soy Jampier" entra con el PIN de la vista previa');
+  ok(await p.isVisible('#paso-persona'), 'cerrar sesión vuelve a "¿Quién eres?"');
+  ok((await p.textContent('#pin-demo')) === '5826', 'la ayuda de la vista previa muestra el PIN de ejemplo actual');
   ok(errores.length === 0, `sin errores en la consola ${errores.length ? JSON.stringify(errores) : ''}`);
   await contexto.close();
 
@@ -146,6 +156,7 @@ try {
   contexto = await nuevoContexto(navegador);
   p = await contexto.newPage();
   errores = vigilarConsola(p, [/websocket/i, /realtime/i, /ERR_NAME_NOT_RESOLVED/i, /Failed to load resource/i]);
+  await cerrarSorpresas(p);
   await p.route('**/js/config.js', (r) => r.fulfill({ status: 200, contentType: 'application/javascript', body: config }));
   await p.routeWebSocket(/supabase\.co/, (ws) => ws.close());
   await p.route(`${SB}/**`, async (r) => {
@@ -183,7 +194,7 @@ try {
   ok(llamadas.length === 0, 'abrir la entrada no consulta nada todavía');
 
   funcionPublicada = false;
-  await p.fill('#usuario', 'jampier');
+  await p.click('[data-persona="jampier"]');
   await p.fill('#pin-entrada', '7391');
   await p.waitForFunction(() => document.querySelector('#error-entrada').textContent.length > 0);
   ok((await textoError(p)).includes('Falta publicar la función'), 'si falta publicar la función, lo dice claro');
@@ -192,15 +203,17 @@ try {
   await p.fill('#pin-entrada', '1111');
   await p.waitForFunction(() => document.querySelector('#error-entrada').textContent.includes('quedan'));
   ok((await textoError(p)).includes('Te quedan 4 intentos'), 'PIN equivocado: avisa cuántos intentos quedan');
-  await p.fill('#usuario', 'estrellita');
+  await p.click('#cambiar-persona');
+  await p.click('[data-persona="estrellita"]');
   await p.fill('#pin-entrada', '7391');
   await p.waitForFunction(() => document.querySelector('#error-entrada').textContent.includes('Espera'));
   ok((await textoError(p)).includes('Espera 14 minutos'), 'en espera por intentos: dice cuántos minutos faltan');
 
-  await p.fill('#usuario', 'jampier');
+  await p.click('#cambiar-persona');
+  await p.click('[data-persona="jampier"]');
   await p.fill('#pin-entrada', '7391');
   await p.waitForSelector('#pantalla-chat:not([hidden])', { timeout: 10000 });
-  ok(true, 'jampier + PIN correcto → entra al chat conectado');
+  ok(true, 'Soy Jampier + PIN correcto → entra al chat conectado');
   const alaFuncion = llamadas.filter((l) => l.ruta === '/functions/v1/entrar-con-pin').at(-1);
   ok(alaFuncion.cuerpo.usuario === 'jampier' && alaFuncion.cuerpo.pin === '7391', 'manda usuario y PIN a la función entrar-con-pin');
   ok(alaFuncion.apikey === 'sb_publishable_prueba123', 'con la clave pública (nunca la secreta)');
@@ -221,6 +234,7 @@ try {
   contexto = await nuevoContexto(navegador);
   p = await contexto.newPage();
   errores = vigilarConsola(p);
+  await cerrarSorpresas(p);
   await p.goto(DOMINIO, { waitUntil: 'networkidle' });
   await p.waitForFunction(() => document.querySelector('#pantalla-carga').hidden);
   ok(JSON.stringify(await pantallasVisibles(p)) === '["pantalla-conexion"]', 'sin datos de Supabase: solo "Casi listo" (sin bot)');

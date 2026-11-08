@@ -104,6 +104,19 @@ export function carpetaCapturas(nombre = 'capturas') {
   return ruta;
 }
 
+/**
+ * En la vista previa la "pareja de ejemplo" manda un "Te extraño" sorpresa a
+ * los ~26 s, con una pantalla especial que tapa todo (a propósito). Si aparece
+ * en medio de una prueba, se cierra como lo haría una persona.
+ * @param {(capa: import('playwright').Locator) => Promise<void>} [antesDeCerrar]
+ */
+export async function cerrarSorpresas(pagina, antesDeCerrar) {
+  await pagina.addLocatorHandler(pagina.locator('.capa-te-extrano'), async (capa) => {
+    await antesDeCerrar?.(capa);
+    await capa.locator('[data-cerrar]').click();
+  });
+}
+
 /** Pantallas visibles ahora mismo. */
 export const pantallasVisibles = (pagina) =>
   pagina.evaluate(() => [...document.querySelectorAll('section.pantalla')].filter((s) => !s.hidden).map((s) => s.id));

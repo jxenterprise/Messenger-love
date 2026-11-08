@@ -25,9 +25,20 @@ export const CONFIG = {
   //    (la privada va SOLO en los secretos de Supabase, nunca aquí).
   VAPID_PUBLIC_KEY: 'BE_Jk18lHmCaWp9skthVK24Qx3-lWB8CF-STN_o5I2ZEZIfJRqE00_vuNhibx6onHTGWIItijDvnF8VKAa9o6D0',
 
+  // 4) Quiénes entran: un botón "Soy …" por persona en la pantalla de entrada.
+  //    "usuario" debe ser IGUAL al de la columna usuario de la tabla perfiles
+  //    en Supabase. "nombre" es lo que dice el botón.
+  PERSONAS: [
+    { usuario: 'jampier', nombre: 'Jampier' },
+    { usuario: 'estrellita', nombre: 'Estrellita' },
+  ],
+
   // Datos de la app
   NOMBRE_APP: 'Messenger Estrellita y Jampier',
-  VERSION: '1.1.1',
+  // Versión visible debajo de "Nuestro rincón privado" (v1.4).
+  // Numeración: 1.0, 1.1, 1.2 … hasta 1.50; después pasa a 2.0.
+  // ✏️ Súbela en cada entrega (y también VERSION en web/sw.js).
+  VERSION: '1.4',
 };
 
 /* --------------------------------------------------------------------------

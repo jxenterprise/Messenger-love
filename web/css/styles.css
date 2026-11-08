@@ -584,18 +584,98 @@ a {
   font-size: 14px;
   color: var(--tinta);
 }
-.caja-demo .botones-demo {
+
+/* Versión pequeña debajo de "Nuestro rincón privado" */
+.marca .version-app {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--tinta-tenue);
+}
+
+/* Paso 1 de la entrada: ¿quién eres? */
+.elegir-persona {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pregunta-persona {
+  margin: 0;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--tinta-suave);
+}
+.botones-persona {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 10px;
 }
-.caja-demo .boton.secundario {
+.boton-persona {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 10px;
+  border: 1px solid transparent;
+  border-radius: 20px;
+  background: var(--acento-suave);
+  color: var(--tinta);
+  font-weight: 800;
+  font-size: 15.5px;
+  text-align: center;
+  transition: transform 0.15s, border-color 0.15s, background-color 0.15s;
+}
+.boton-persona:hover {
+  border-color: var(--acento);
+}
+.boton-persona:active {
+  transform: scale(0.97);
+}
+.boton-persona .avatar,
+.saludo-persona .avatar {
   background: var(--superficie);
+  box-shadow: var(--sombra-burbuja);
 }
-.caja-demo .boton {
-  min-height: 44px;
-  padding: 0 10px;
-  font-size: 15px;
+.boton-persona .avatar {
+  width: 56px;
+  height: 56px;
+  font-size: 28px;
+}
+
+/* Paso 2: "Hola, Jampier" + PIN */
+.saludo-persona {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 18px;
+  background: var(--acento-suave);
+}
+.saludo-persona .avatar {
+  width: 44px;
+  height: 44px;
+  font-size: 22px;
+}
+.datos-saludo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.datos-saludo strong {
+  font-size: 17px;
+}
+.enlace-cambiar {
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--acento);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 /* Campo del PIN: 4 números grandes y espaciados */
@@ -1060,6 +1140,12 @@ a.boton {
   box-shadow: var(--sombra-burbuja);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
+  transition: opacity 0.15s;
+}
+/* Fecha pegada arriba que quedó debajo de la del día siguiente: se esconde
+   (si no, "Viernes" se asoma por los lados de "Ayer") */
+.dia.tapada {
+  opacity: 0;
 }
 
 /* Filas y burbujas */

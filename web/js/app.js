@@ -193,6 +193,8 @@ async function registrarServiceWorker() {
 }
 
 function ofrecerActualizacion(sw) {
+  if (app.ofreciendoActualizacion) return; // ya se está mostrando: no repetirlo
+  app.ofreciendoActualizacion = true;
   aviso('Hay una versión nueva de la app ✨', {
     accion: 'Actualizar',
     alAccionar: () => sw.postMessage({ tipo: 'ACTUALIZAR' }),
@@ -416,32 +418,77 @@ function mostrarFaltaConexion() {
   mostrarPantalla('conexion');
 }
 
-function mostrarEntrada(mensaje = '') {
+/**
+ * Pantalla de entrada en 2 pasos:
+ *   1. "¿Quién eres?" → un botón por persona (CONFIG.PERSONAS).
+ *   2. "Hola, Jampier" → solo el PIN (con el 4.º número entra sola).
+ * @param {string} mensaje  Aviso para mostrar (por ejemplo, "El PIN se cambió").
+ * @param {{persona?: string}} opciones  Usuario a dejar elegido (salta al paso 2).
+ */
+function mostrarEntrada(mensaje = '', { persona = '' } = {}) {
   errorEntrada(mensaje);
   $('#caja-demo').hidden = !MODO_DEMO;
-  $('#usuario').value = local.leer('ultimo-usuario', '') || $('#usuario').value;
+  if (MODO_DEMO && backend?.pinDemo) $('#pin-demo').textContent = backend.pinDemo();
   $('#pin-entrada').value = '';
   mostrarPantalla('entrada');
-  setTimeout(() => ($('#usuario').value ? $('#pin-entrada') : $('#usuario')).focus(), 60);
+  if (persona && personaPorUsuario(persona)) elegirPersona(persona, { conservarMensaje: true });
+  else volverAElegir({ conservarMensaje: true });
+}
+
+const personaPorUsuario = (usuario) => CONFIG.PERSONAS.find((p) => p.usuario === usuario) || null;
+
+/** Paso 2: la persona ya está elegida, solo falta el PIN. */
+function elegirPersona(usuario, { conservarMensaje = false } = {}) {
+  const persona = personaPorUsuario(usuario);
+  if (!persona) return;
+  if (!conservarMensaje) errorEntrada('');
+  $('#usuario').value = persona.usuario;
+  $('#nombre-entrada').textContent = `Hola, ${persona.nombre}`;
+  $('#avatar-entrada').textContent = persona.nombre.trim().charAt(0).toUpperCase() || '♥';
+  $('#paso-persona').hidden = true;
+  $('#formulario-entrada').hidden = false;
+  $('#pin-entrada').value = '';
+  // Foco inmediato (dentro del mismo toque): así el iPhone abre el teclado de números
+  $('#pin-entrada').focus();
+}
+
+/** Paso 1: volver a "¿Quién eres?". */
+function volverAElegir({ conservarMensaje = false } = {}) {
+  if (!conservarMensaje) errorEntrada('');
+  $('#usuario').value = '';
+  $('#pin-entrada').value = '';
+  $('#formulario-entrada').hidden = true;
+  $('#paso-persona').hidden = false;
+}
+
+/** Dibuja los botones "Soy …" a partir de CONFIG.PERSONAS. */
+function pintarPersonas() {
+  $('#botones-persona').innerHTML = CONFIG.PERSONAS.map(
+    (p) => `
+      <button type="button" class="boton-persona" data-persona="${escaparHtml(p.usuario)}">
+        <span class="avatar" aria-hidden="true">${escaparHtml(p.nombre.trim().charAt(0).toUpperCase() || '♥')}</span>
+        <span class="texto-persona">Soy ${escaparHtml(p.nombre)}</span>
+      </button>`,
+  ).join('');
 }
 
 const claveVersionPin = (id) => `pin-version:${id}`;
 
-/** Entra con usuario + PIN (formulario o botones rápidos del demo). */
+/** Entra con la persona elegida + el PIN. */
 async function ingresar(usuario, pinEscrito) {
   const boton = $('#boton-entrar');
   if (boton.disabled) return;
-  if (!/^[a-zA-Z0-9._-]{2,30}$/.test(usuario)) return errorEntrada('Escribe tu usuario.');
+  if (!personaPorUsuario(usuario)) return volverAElegir();
   if (!/^[0-9]{4}$/.test(pinEscrito)) return errorEntrada('El PIN son 4 números.');
   boton.disabled = true;
   boton.textContent = 'Entrando…';
   errorEntrada('');
   try {
-    const { usuario: cuenta, version } = await backend.entrar(usuario.toLowerCase(), pinEscrito);
+    const { usuario: cuenta, version } = await backend.entrar(usuario, pinEscrito);
     // El mismo PIN abre el bloqueo automático de este dispositivo
     await guardarPin(cuenta.id, pinEscrito);
     local.guardar(claveVersionPin(cuenta.id), version);
-    local.guardar('ultimo-usuario', usuario.toLowerCase());
+    local.guardar('ultimo-usuario', usuario);
     $('#pin-entrada').value = '';
     await entrarConUsuario(cuenta, { recienEntrado: true });
   } catch (error) {
@@ -456,30 +503,23 @@ async function ingresar(usuario, pinEscrito) {
 }
 
 function enlazarEntrada() {
+  pintarPersonas();
   const campoPin = $('#pin-entrada');
+  $('#botones-persona').addEventListener('click', (e) => {
+    const boton = e.target.closest('[data-persona]');
+    if (boton) elegirPersona(boton.dataset.persona);
+  });
+  $('#cambiar-persona').addEventListener('click', () => volverAElegir());
+
   $('#formulario-entrada').addEventListener('submit', (e) => {
     e.preventDefault();
-    ingresar($('#usuario').value.trim(), campoPin.value.trim());
+    ingresar($('#usuario').value, campoPin.value.trim());
   });
   // Solo números; con el 4.º número entra solo (como el desbloqueo del celular)
   campoPin.addEventListener('input', () => {
     const limpio = campoPin.value.replace(/\D/g, '').slice(0, 4);
     if (campoPin.value !== limpio) campoPin.value = limpio;
-    if (limpio.length === 4 && $('#usuario').value.trim()) $('#formulario-entrada').requestSubmit();
-  });
-  $('#usuario').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !campoPin.value) {
-      e.preventDefault();
-      campoPin.focus();
-    }
-  });
-
-  // Botones rápidos de la vista previa: entran con el PIN de ejemplo
-  $('#caja-demo').addEventListener('click', (e) => {
-    const boton = e.target.closest('[data-demo]');
-    if (!boton) return;
-    $('#usuario').value = boton.dataset.demo;
-    ingresar(boton.dataset.demo, backend.pinDemo());
+    if (limpio.length === 4 && $('#usuario').value) $('#formulario-entrada').requestSubmit();
   });
 
   $('#ver-clave').addEventListener('click', () => {
@@ -528,7 +568,13 @@ async function entrarConUsuario(usuario, { recienEntrado = false } = {}) {
   chat.abrirChat();
   aplicarFondo(local.leer('fondo', 'corazones'));
 
-  if (recienEntrado) desbloquear();
+  if (recienEntrado) {
+    desbloquear();
+    // Que quede claro quién entró y con quién habla (arriba sale la otra persona)
+    const yo = ctx.miPerfil();
+    const pareja = ctx.pareja();
+    if (yo) aviso(`Hola, ${yo.nombre} 💜 Estás hablando con ${pareja?.nombre || 'tu amor'}`, { duracion: 4000 });
+  }
   else mostrarPin();
 }
 
@@ -550,7 +596,8 @@ async function forzarSalida(mensaje = '') {
   ctx.yo = null;
   ctx.perfiles.clear();
   app.bloqueado = false;
-  mostrarEntrada(mensaje);
+  // Con aviso (por ejemplo, "El PIN se cambió") queda elegida la misma persona
+  mostrarEntrada(mensaje, { persona: mensaje ? local.leer('ultimo-usuario', '') : '' });
 }
 
 async function cerrarSesion() {
@@ -594,6 +641,10 @@ function pintarPuntos() {
 function mostrarPin() {
   app.bloqueado = true;
   pin.valor = '';
+  // La pantalla del PIN queda limpia: sin corazones cayendo ni avisos del chat encima
+  document.querySelectorAll('.lluvia').forEach((n) => n.remove());
+  $('#avisos-flotantes').replaceChildren();
+  app.ofreciendoActualizacion = false; // ese aviso se vuelve a ofrecer al desbloquear
   const yo = ctx.miPerfil();
   chat.pintarAvatar($('#avatar-pin'), yo);
   $('#titulo-pin').textContent = `Hola, ${yo?.nombre || 'amor'}`;
@@ -659,6 +710,8 @@ function desbloquear() {
   mostrarTarjetaNotificaciones();
   revisarAccionInicial();
   revisarVersionPin();
+  // Si había una versión nueva esperando (el aviso se limpió al bloquear), se ofrece otra vez
+  if (app.registroSW?.waiting && navigator.serviceWorker?.controller) ofrecerActualizacion(app.registroSW.waiting);
 }
 
 /** Atajo del ícono de la app (Android): mantener presionado → "Enviar un Te extraño". */
@@ -1021,6 +1074,8 @@ async function arrancar() {
   pintarIconos();
   aplicarTema(local.leer('tema', 'auto'));
   configurarAlturaVisible();
+  // Versión visible debajo de "Nuestro rincón privado"
+  document.querySelectorAll('[data-version]').forEach((n) => (n.textContent = `v${CONFIG.VERSION}`));
 
   // Publicada pero sin Supabase todavía: nada de mensajes de ejemplo
   if (FALTA_CONEXION) {

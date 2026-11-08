@@ -19,7 +19,7 @@ npm test           # corre TODAS las pruebas (unos 3 minutos)
 npm run ver        # abre http://localhost:8080
 ```
 
-Sin datos de Supabase entra en modo vista previa: usuario `jampier` o `estrellita` y PIN `1234` (solo existe en la vista previa; el PIN real nunca puede ser 1234).
+Con los datos de Supabase que ya tiene `web/js/config.js`, `npm run ver` abre la app **real** (mensajes de verdad). Las pruebas automáticas nunca usan el proyecto real: cargan `config.js` sin esos datos y entran en modo vista previa ("Soy Jampier" o "Soy Estrellita" + PIN `1234`, que solo existe en la vista previa) o usan un Supabase imitado.
 
 ## Cada prueba por separado
 
@@ -30,6 +30,8 @@ Sin datos de Supabase entra en modo vista previa: usuario `jampier` o `estrellit
 | `npm run prueba:funcion` | La función `enviar-push`: descifra cada aviso con `http_ece` y verifica la firma VAPID (34 pruebas). |
 | `npm run prueba:ingreso` | En el navegador: entrar con usuario + PIN, bloqueo, cambiar PIN, PIN cambiado en el otro celular, la app **conectada** a un Supabase imitado (función + canje del pase), "Casi listo" y la clave secreta. |
 | `npm run prueba:app` | En el navegador: la app completa en modo demo (texto, respuesta, nota de voz, foto, "Te extraño", tema, ajustes, búsqueda, bloqueo) en celular y computador. |
+| `npm run prueba:pantallas` | 10 tamaños (Galaxy Fold 280 px, Android pequeño, iPhone SE, iPhone 15, Pixel 7, iPhone 15 Pro Max, celular acostado, iPad, portátil y monitor): que nada se salga a los lados en ninguna pantalla. |
+| `npm run prueba:celulares` | **Los 2 celulares de la pareja**: iPhone 12 Pro Max (428 × 926, motor de Safari, con notch y barra de inicio simulados) y Redmi Note 14 Pro+ (≈ 407 × 904 en Chrome, con barras y con pantalla ampliada). Revisa que nada quede tapado. Para usar el motor de Safari, instálalo una vez con `npm run instalar:safari`; si no está, usa el de Chrome. |
 | `npm run prueba:sin-senal` | Con un servidor que imita a Cloudflare (`/index.html` → `/`): la app instalada abre sin internet. También acepta una dirección: `node prueba_sin_senal.mjs https://…pages.dev/?demo`. |
 | `npm run prueba:generador` | Abre `herramientas/generar-claves-vapid.html` y valida las claves con `web-push`. |
 | `npm run prueba:deno` | (Opcional) La función de avisos corriendo en Deno real. |

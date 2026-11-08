@@ -426,7 +426,12 @@ function parejaEnLinea() {
 export function actualizarCabecera() {
   if (!ctx || !el.nombrePareja) return;
   const p = ctx.pareja();
+  const nombre = p?.nombre || 'tu amor';
+  // Arriba va la persona con la que hablas (como en WhatsApp); la casilla de
+  // escribir lo deja claro para que nadie piense que entró a la otra cuenta.
   el.nombrePareja.textContent = p?.nombre || 'Tu amor';
+  el.entrada.placeholder = `Escríbele a ${nombre}…`;
+  $('#boton-persona')?.setAttribute('aria-label', `Hablando con ${nombre}. Abrir ajustes`);
   pintarAvatar(el.avatarPareja, p);
   const escribiendo = Date.now() < estado.escribiendoHasta;
   const enLinea = parejaEnLinea();
@@ -571,6 +576,26 @@ function renderizarTodo({ mantenerPosicion = false } = {}) {
   el.mensajes.replaceChildren(fragmento);
   estado.diaRender = claveDia(Date.now());
   if (ancla) restaurarAncla(ancla);
+  requestAnimationFrame(ordenarFechasPegadas);
+}
+
+/**
+ * Las fechas ("Viernes", "Ayer", "Hoy") se quedan pegadas arriba al deslizar.
+ * Como todas viven en la misma lista, se apilan: solo se deja ver la del día
+ * que se está mirando (la última pegada) y las de abajo se esconden.
+ */
+function ordenarFechasPegadas() {
+  if (!el.desplazable) return;
+  const tope = el.desplazable.getBoundingClientRect().top;
+  let anterior = null;
+  for (const dia of el.mensajes.querySelectorAll('.dia')) {
+    const pegada = dia.getBoundingClientRect().top - tope <= 8; // "top: 6px" en el CSS
+    dia.classList.remove('tapada');
+    if (pegada) {
+      anterior?.classList.add('tapada');
+      anterior = dia;
+    }
+  }
 }
 
 function insertarNuevo(m) {
@@ -592,6 +617,7 @@ function agregarAlFinal(m, { nueva = false } = {}) {
   const fila = crearFila(m, previo, { nueva });
   nodos.set(m.client_id, fila);
   el.mensajes.appendChild(fila);
+  requestAnimationFrame(ordenarFechasPegadas);
 }
 
 function anteriorA(cid) {
@@ -1876,6 +1902,7 @@ function enlazarEventos() {
       pendienteScroll = true;
       requestAnimationFrame(() => {
         pendienteScroll = false;
+        ordenarFechasPegadas();
         const d = distanciaAlFondo();
         el.irAbajo.hidden = d < 320;
         if (d < 160 && estado.sinLeerAbajo) {

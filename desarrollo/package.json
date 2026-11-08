@@ -3,17 +3,20 @@
   "private": true,
   "description": "Pruebas automáticas y constructor de la vista previa de Messenger Estrellita y Jampier. No se sube a ningún lado.",
   "scripts": {
-    "test": "npm run prueba:sql && npm run prueba:entrar && npm run prueba:funcion && npm run prueba:ingreso && npm run prueba:app && npm run prueba:sin-senal && npm run prueba:generador",
+    "test": "npm run prueba:sql && npm run prueba:entrar && npm run prueba:funcion && npm run prueba:ingreso && npm run prueba:app && npm run prueba:pantallas && npm run prueba:celulares && npm run prueba:sin-senal && npm run prueba:generador",
     "prueba:sql": "node prueba_sql.mjs supabase_simulado.sql ../supabase/01_estructura.sql ../supabase/02_nueva_contrasena.sql ../supabase/03_pin.sql",
     "prueba:entrar": "node prueba_entrar.mjs",
     "prueba:funcion": "node prueba_funcion.mjs ../supabase/functions/enviar-push/index.ts",
     "prueba:ingreso": "node prueba_ingreso.mjs",
     "prueba:app": "node prueba_app.mjs",
+    "prueba:pantallas": "node prueba_pantallas.mjs",
+    "prueba:celulares": "node prueba_celulares.mjs",
     "prueba:sin-senal": "node prueba_sin_senal.mjs",
     "prueba:generador": "node prueba_generador.mjs",
     "prueba:deno": "node e2e_deno.mjs ./node_modules/.bin/deno ../supabase/functions/enviar-push/index.ts ./.deno",
     "ver": "node servidor_cloudflare.mjs ../web 8080",
-    "vista-previa": "node construir_vista_previa.mjs ../web vista-previa/messenger-estrellita-jampier.html"
+    "vista-previa": "node construir_vista_previa.mjs ../web vista-previa/messenger-estrellita-jampier.html",
+    "instalar:safari": "npx playwright install webkit"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.3.16",

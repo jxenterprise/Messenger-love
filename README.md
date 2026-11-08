@@ -6,7 +6,7 @@ Todo funciona con planes **gratis**: Supabase (la base de datos y el tiempo real
 
 > Tiempo total la primera vez: unos 40 minutos, con calma. Haz los pasos en orden y no te saltes ninguno.
 
-> 📍 **Estado actual (domingo 8 de noviembre de 2026, 1:10 a. m., hora de Colombia):** la app está **conectada a Supabase** (proyecto `messenger-eyj`, São Paulo) y publicada en Cloudflare. Cuentas `jampier` y `estrellita` creadas, PIN puesto y las 2 funciones publicadas. Falta la prueba final entre los dos celulares (pasos 9 y 10). Lo nuevo de cada versión está en [Novedades](#novedades).
+> 📍 **Estado actual (domingo 8 de noviembre de 2026, 2:05 a. m., hora de Colombia) · versión v1.4:** la app está **conectada a Supabase** (proyecto `messenger-eyj`, São Paulo) y publicada en Cloudflare. Para entrar: **"Soy Jampier" o "Soy Estrellita" + el PIN**. Revisada en sus dos celulares (Redmi Note 14 Pro+ y iPhone 12 Pro Max) y en 10 tamaños más. Falta instalarla en los dos celulares y activar los avisos (pasos 9 y 10). Lo nuevo de cada versión está en [Novedades](#novedades).
 
 ---
 
@@ -15,7 +15,7 @@ Todo funciona con planes **gratis**: Supabase (la base de datos y el tiempo real
 | Carpeta / archivo | Para qué sirve |
 |---|---|
 | `web/` | **La app.** Esta carpeta (y solo esta) es la que publica Cloudflare. |
-| `web/js/config.js` | ✏️ El único archivo que tienes que editar: aquí van tus datos de Supabase. |
+| `web/js/config.js` | ✏️ El único archivo que tienes que editar: datos de Supabase, las personas de los botones "Soy …" (`PERSONAS`) y la versión (`VERSION`). |
 | `supabase/01_estructura.sql` | Crea la base de datos y todas las reglas de seguridad. |
 | `supabase/03_pin.sql` | ✏️ Crea el PIN de los dos (y desbloquea si hubo muchos intentos fallidos). |
 | `supabase/02_nueva_contrasena.sql` | Plantilla de emergencia para la contraseña interna de una cuenta (casi nunca se usa). |
@@ -141,7 +141,7 @@ Así, cada cambio que guardes en la rama `main` de GitHub se publica solo.
 >
 > Sin ese archivo, Cloudflare publicaría la carpeta completa del proyecto: la página saldría en blanco (error 404) y quedarían a la vista el README y los archivos SQL.
 
-**Para subir cambios en el futuro:** edita los archivos en GitHub (lápiz ✏️) o súbelos con **Add file → Upload files**, siempre en la rama `main`, y Cloudflare publica solo. Cuando cambies algo de la carpeta `web`, sube también la versión en `web/sw.js` (`VERSION`) y en `web/js/config.js` (`VERSION`): así los celulares muestran "Hay una versión nueva de la app ✨".
+**Para subir cambios en el futuro:** edita los archivos en GitHub (lápiz ✏️) o súbelos con **Add file → Upload files**, siempre en la rama `main`, y Cloudflare publica solo. Cuando cambies algo de la carpeta `web`, sube también la versión en `web/sw.js` (`VERSION`) y en `web/js/config.js` (`VERSION`): así los celulares muestran "Hay una versión nueva de la app ✨". La versión se ve pequeña debajo de "Nuestro rincón privado" y va así: **v1.0, v1.1, v1.2 … hasta v1.50, y después v2.0**.
 
 <details>
 <summary>Otra forma: subir la carpeta a mano, sin GitHub</summary>
@@ -168,12 +168,12 @@ Supabase gratis pausa el proyecto si pasan 7 días sin actividad. Si chatean a d
 **iPhone (Safari):**
 1. Abre la dirección `.pages.dev` en **Safari**.
 2. Botón **Compartir** (cuadrito con flecha) → **Agregar a pantalla de inicio** → deja activado **Abrir como app web** → **Agregar**.
-3. Abre la app **desde el ícono** y entra con tu usuario y el PIN.
+3. Abre la app **desde el ícono**, toca **"Soy Estrellita"** (o "Soy Jampier") y escribe el PIN.
 4. **Ajustes → Avisos en este dispositivo** → **Permitir**.
 
 **Android (Chrome):**
 1. Abre la dirección en **Chrome** → menú **⋮** → **Instalar app** (o *Agregar a la pantalla principal*).
-2. Abre la app, entra con tu usuario y el PIN, y activa los avisos en **Ajustes**.
+2. Abre la app, toca **"Soy Jampier"**, escribe el PIN y activa los avisos en **Ajustes**.
 
 **Computador (Chrome o Edge):** el ícono de instalar aparece en la barra de direcciones.
 
@@ -202,7 +202,7 @@ Cuando todo funcione: Supabase → **Realtime** → **Settings** → apaga **All
 - Fotos (se comprimen a WebP para que suban rápido y ocupen poco), notas de voz con onda y velocidad 1x / 1.5x / 2x.
 - Responder (deslizando el mensaje a la derecha), reaccionar, copiar, editar (15 min) y eliminar para los dos.
 - 💌 **Te extraño**: tu pareja recibe una pantalla especial con lluvia de corazones. En Android, dejando presionado el ícono aparece el atajo "Enviar un Te extraño".
-- Entrar con usuario + PIN de 4 números (el mismo para los dos), bloqueo automático con ese PIN y la pantalla se difumina en el selector de apps.
+- Entrar tocando **"Soy Jampier" / "Soy Estrellita"** y el PIN de 4 números (el mismo para los dos), bloqueo automático con ese PIN y la pantalla se difumina en el selector de apps.
 - Tema automático (claro: piel y lila; oscuro: negro y rojo suave) con botón para cambiarlo, y fondo con corazones, liso o con una foto suya.
 - Funciona sin internet: los mensajes se guardan y salen solos al volver la conexión.
 - Búsqueda en la conversación.
@@ -249,7 +249,9 @@ Cloudflare Pages: gratis, sin límite de visitas. Para ver el consumo: Supabase 
 
 **Sale el aviso rojo "Esa clave no va aquí"** → en `web/js/config.js` pegaste la *secret key* o la *service_role*. Pon la *publishable key* y, por seguridad, crea una secret nueva en Supabase (**Project Settings → API Keys**).
 
-**"Usuario o PIN incorrectos"** → revisa el usuario en **Table Editor → perfiles → usuario** (es lo que va después del `+` del correo). El PIN es el que pusiste en `supabase/03_pin.sql` o en Ajustes.
+**"Usuario o PIN incorrectos"** → el PIN es el que pusiste en `supabase/03_pin.sql` o en Ajustes. Si cambiaste un usuario, revisa que el `usuario` de **Table Editor → perfiles** sea igual al de `PERSONAS` en `web/js/config.js` (hoy: `jampier` y `estrellita`).
+
+**"Al entrar como Jampier arriba dice Estrellita"** → es lo correcto: arriba sale la persona con la que hablas, como en WhatsApp. Al entrar aparece "Hola, Jampier 💜 Estás hablando con Estrellita", tus mensajes salen a la derecha y la casilla dice "Escríbele a Estrellita…".
 
 **"Demasiados intentos. Espera…"** → hubo 5 fallos seguidos: espera los minutos que dice.
 
@@ -283,12 +285,24 @@ Cloudflare Pages: gratis, sin límite de visitas. Para ver el consumo: Supabase 
 
 ## Novedades
 
-**Versión 1.1.1 · 8 de noviembre de 2026, 1:08 a. m. — Conectada a Supabase**
+Numeración: **v1.0, v1.1, v1.2 … hasta v1.50; después v2.0**. Las primeras versiones tenían otro número; aquí van con los dos.
+
+**v1.4 · domingo 8 de noviembre de 2026, 2:05 a. m. — "Soy Jampier / Soy Estrellita" y revisión completa**
+- Para entrar ya no se escribe ningún nombre: primero **"¿Quién eres?"** con los botones "Soy Jampier" y "Soy Estrellita"; después solo el PIN (entra sola al 4.º número). "No soy yo" vuelve a elegir. Los botones salen de `PERSONAS` en `web/js/config.js`.
+- La versión se ve pequeña debajo de "Nuestro rincón privado" (v1.4).
+- Más claro quién entró: al entrar sale "Hola, Jampier 💜 Estás hablando con Estrellita" y la casilla dice "Escríbele a Estrellita…" (arriba siempre va la persona con la que hablas, como en WhatsApp; no era que entrara a la otra cuenta).
+- Arreglado: al deslizar, las fechas pegadas arriba se montaban una encima de otra ("Ayer" sobre "Viernes"); ahora solo se ve la del día que estás mirando.
+- Arreglado: al bloquear justo después de un "Te extraño", la lluvia de corazones y los avisos quedaban encima del teclado del PIN.
+- En el iPhone el teclado de números se abre solo al tocar tu nombre.
+- Revisión completa: sus dos celulares (Redmi Note 14 Pro+ con Chrome, iPhone 12 Pro Max con el motor de Safari, notch y barra de inicio) y 10 tamaños más (desde 280 px de ancho hasta monitor grande). Nada se sale de la pantalla y no hay errores.
+- Pruebas nuevas: `prueba_celulares.mjs` y `prueba_pantallas.mjs`.
+
+**v1.3 (antes 1.1.1) · 8 de noviembre de 2026, 1:08 a. m. — Conectada a Supabase**
 - `web/js/config.js` ya tiene la Project URL, la publishable key y la clave pública VAPID del proyecto `messenger-eyj` (todas públicas por diseño; las secretas solo están en Supabase).
 - Supabase configurado: base de datos (`01_estructura.sql`), cuentas `jampier` y `estrellita` con sus correos reales, registro cerrado, PIN creado, secretos VAPID y funciones `entrar-con-pin` y `enviar-push` con Verify JWT apagado.
 - Comprobado en el proyecto real: sin sesión no se ve nada (perfiles, mensajes ni la revisión del PIN), y la app conectada responde bien al entrar.
 
-**Versión 1.1.0 · 7 de noviembre de 2026, 1:21 a. m. — Entrar con usuario + PIN**
+**v1.2 (antes 1.1.0) · 7 de noviembre de 2026, 1:21 a. m. — Entrar con usuario + PIN**
 - Cada uno entra con su usuario (`jampier` o `estrellita`) y el mismo PIN de 4 números. Ya no hay correo ni contraseña en la app.
 - El PIN lo revisa el servidor y se guarda cifrado: 5 fallos seguidos → esperar 15 minutos; 15 → cuenta bloqueada hasta desbloquearla con `supabase/03_pin.sql`. No se aceptan PINs fáciles.
 - Nueva función de Supabase `entrar-con-pin` y nueva plantilla `supabase/03_pin.sql` (crear el PIN y desbloquear).
@@ -296,13 +310,13 @@ Cloudflare Pages: gratis, sin límite de visitas. Para ver el consumo: Supabase 
 - Se quitó "Cambiar contraseña" y el paso de crear un PIN aparte al entrar por primera vez.
 - Pruebas: todas en Node, corren en Windows sin instalar nada más (`npm test` en `desarrollo`). Se pueden ver los cambios en el computador con `npm run ver` (http://localhost:8080).
 
-**Versión 1.0.1 · 6 de noviembre de 2026, 12:13 p. m. — La página ya se ve**
+**v1.1 (antes 1.0.1) · 6 de noviembre de 2026, 12:13 p. m. — La página ya se ve**
 - `wrangler.toml`: Cloudflare publica solo la carpeta `web` (antes salía en blanco con error 404 y se veían el README y los SQL).
 - Sin Supabase, la página muestra "Casi listo" en vez de la conversación de ejemplo con respuestas automáticas. El demo solo abre con el botón "Ver una vista previa".
 - La app instalada vuelve a abrir sin señal (arreglo del service worker para Cloudflare).
 - Si se pega por error la clave secreta de Supabase, la app se niega a usarla y muestra un aviso rojo.
 
-**Versión 1.0.0 · 6 de noviembre de 2026, 11:15 a. m. — Primera versión**
+**v1.0 (antes 1.0.0) · 6 de noviembre de 2026, 11:15 a. m. — Primera versión**
 - Chat completo: mensajes al instante, fotos, notas de voz, "Te extraño", notificaciones, modo sin señal, tema claro/oscuro y búsqueda.
 
 ---

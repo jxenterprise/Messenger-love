@@ -44,24 +44,28 @@
           <!-- ✏️ ZONA EDITABLE: nombre de la app -->
           <h1>Estrellita y Jampier <span class="corazon-titulo" aria-hidden="true">❤️</span></h1>
           <p class="lema">Nuestro rincón privado</p>
+          <p class="version-app" data-version></p>
         </div>
 
         <!-- Solo se ve en modo demo -->
         <div class="caja-demo" id="caja-demo" hidden>
-          <p><strong>Vista previa.</strong> Entra con el usuario <strong>jampier</strong> o <strong>estrellita</strong> y el PIN <strong>1234</strong>, o toca un botón. Los mensajes son de ejemplo.</p>
-          <div class="botones-demo">
-            <button type="button" class="boton" data-demo="jampier">Soy Jampier</button>
-            <button type="button" class="boton secundario" data-demo="estrellita">Soy Estrellita</button>
-          </div>
+          <p><strong>Vista previa.</strong> Elige quién eres y usa el PIN <strong id="pin-demo">1234</strong>. Los mensajes son de ejemplo.</p>
         </div>
 
-        <!-- ✏️ Entrar: usuario (jampier / estrellita) + el PIN de 4 números de los dos -->
-        <form class="formulario" id="formulario-entrada" novalidate>
-          <div>
-            <label class="etiqueta" for="usuario">Usuario</label>
-            <div class="campo-texto">
-              <span data-icono="usuario"></span>
-              <input id="usuario" name="usuario" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="30" placeholder="Tu usuario" required>
+        <!-- Paso 1: ¿quién eres? Los botones salen de PERSONAS en js/config.js (✏️) -->
+        <div class="elegir-persona" id="paso-persona">
+          <p class="pregunta-persona">¿Quién eres?</p>
+          <div class="botones-persona" id="botones-persona"></div>
+        </div>
+
+        <!-- Paso 2: el PIN de 4 números (el mismo para los dos) -->
+        <form class="formulario" id="formulario-entrada" novalidate hidden>
+          <input type="hidden" id="usuario" name="usuario">
+          <div class="saludo-persona">
+            <span class="avatar" id="avatar-entrada" aria-hidden="true">♥</span>
+            <div class="datos-saludo">
+              <strong id="nombre-entrada">Hola</strong>
+              <button type="button" class="enlace-cambiar" id="cambiar-persona">No soy yo</button>
             </div>
           </div>
           <div>
@@ -73,8 +77,8 @@
             </div>
           </div>
           <button class="boton ancho" type="submit" id="boton-entrar">Entrar</button>
-          <p class="error-texto" id="error-entrada" role="alert"></p>
         </form>
+        <p class="error-texto" id="error-entrada" role="alert"></p>
 
         <p class="nota-pie">Solo existen dos cuentas: la tuya y la de tu amor.</p>
       </div>
@@ -90,6 +94,7 @@
           <p class="sobretitulo">Messenger</p>
           <h1>Estrellita y Jampier <span class="corazon-titulo" aria-hidden="true">❤️</span></h1>
           <p class="lema">Nuestro rincón privado</p>
+          <p class="version-app" data-version></p>
         </div>
 
         <div class="caja-conexion" id="conexion-pendiente">
