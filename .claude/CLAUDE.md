@@ -21,7 +21,7 @@ Chat privado (PWA) para exactamente **2 personas**: Jampier (JX, dueño del proy
   - Riesgo aceptado: cualquiera que sepa el PIN y un usuario entra como esa persona (los dos comparten PIN, así lo quiso JX). Un atacante puede bloquear las cuentas a propósito (15 fallos); las sesiones abiertas no se caen.
 - Llamadas de voz/video: **pendiente para la versión 2** (lo pidió así).
 
-## Estado (8 nov 2026, v1.6)
+## Estado (8 nov 2026, v1.7)
 
 - PR #1 ya está en `main`: la dirección .pages.dev muestra la app ("Casi listo"). La versión 1.1.0 (usuario + PIN) se subió directo a `main` a pedido de JX.
 - El README tiene "Estado actual" arriba y una sección **Novedades** por versión: actualizarlas en cada entrega.
@@ -30,6 +30,7 @@ Chat privado (PWA) para exactamente **2 personas**: Jampier (JX, dueño del proy
 - **8 nov 2026, 3:15 p. m. — v1.5:** ajustes y avisos que nunca se reinician (`perfiles.preferencias`), cámara (fotos < 5 MB), vaciar el chat para los dos, despertador en GitHub Actions (`.github/workflows/despertador.yml`, probado: el ping al proyecto real da 200 "ok").
 - **8 nov 2026, ~3:10 p. m.:** JX ejecutó `01_estructura.sql` (salió "Listo ✅", 2 cuentas, PIN sí). Verificado con la clave publicable sin sesión: `rpc/vaciar_chat`, `chat_estado` y `perfiles` responden 42501 (existen y están protegidos). JX confirmó que vaciar funciona.
 - **8 nov 2026, 3:25 p. m. — v1.6:** "Vaciar solo para mí" además de "para los dos". Sin SQL nuevo.
+- **8 nov 2026, 3:45 p. m. — v1.7:** vista previa al compartir (Open Graph) con la foto especial de la pareja (`web/img/Justos/`, nombre de carpeta elegido por JX). `robots.txt` ahora deja entrar a los robots de vista previa y sigue bloqueando a buscadores y robots de IA.
 - **Pendiente:** nada urgente. Si algún celular no tiene la app instalada o los avisos activados, pasos 9 y 10 del README. Ideas para la v2 abajo.
 - El Python de JX (3.13) está dañado (falta `pickle`); instaló 3.15 (comando `py`). Ya no se usa Python en el proyecto.
 - JX no quiere un "bot": sin Supabase el sitio publicado muestra "Casi listo", nunca la pareja simulada (ver `FALTA_CONEXION` abajo).
@@ -46,6 +47,7 @@ Agregar una entrada al final de cada sesión, ANTES de publicar.
 
 - **Dom 8 nov 2026, ~9:30 a. m. → 3:15 p. m.** — **v1.5.** JX reportó que al volver a entrar las notificaciones salían apagadas y pidió que "no se reinicie nada nunca". Causas: `forzarSalida` (cerrar sesión, PIN cambiado…) llamaba `desactivarNotificaciones`, y `asegurarSuscripcion` nunca corría al reabrir (se llamaba antes de `ctx.yo`). Solución: `perfiles.preferencias` jsonb (tema, fondo, sonido, bloqueo-seg, velocidad-audio, avisos) sincronizado con `guardarPreferencia`/`sincronizarPreferencias` en `app.js`; los avisos solo se apagan desde Ajustes; al entrar `revisarAvisos()` renueva la suscripción; cerrar sesión ya no borra nada (solo el PIN guardado). Además: botón de cámara (`capture="environment"`, solo táctil) y `comprimirImagen` con tope de 5 MB; menú ⋮ → "Borrar mensajes" (explica borrar uno + "Vaciar todo el chat" con doble confirmación, RPC `vaciar_chat` + tabla `chat_estado` en realtime); despertador en GitHub Actions (JX eligió eso; se re-activa solo por la regla de 60 días). Bug encontrado por las pruebas: dos capas seguidas cruzaban `history.back()` con `pushState` y la página quedaba en blanco → `abrirCapa` espera a que termine el "atrás" (`esperaHistorial`). 462 pruebas OK.
 - **Dom 8 nov 2026, ~3:10 p. m. → 3:30 p. m.** — Al vaciar salía "Could not find the function public.vaciar_chat…": faltaba el SQL de la v1.5; se le explicó a JX dónde está el archivo y para qué sirve, lo ejecutó y quedó verificado. JX notó que vaciar borra para los dos (era lo pedido) y eligió **tener las dos opciones** → **v1.6**: "Vaciar solo para mí" guarda un corte (`oculto-hasta` en `perfiles.preferencias`, local `eyj:oculto:<uid>`) = `creado_en` del último mensaje recibido (hora del servidor, no del celular). Nada se borra de la nube. 469 pruebas OK. JX cerró el día: "todo funciona".
+- **Dom 8 nov 2026, ~3:30 p. m. → 3:50 p. m.** — **v1.7.** JX pidió que al compartir el enlace saliera una foto especial (un muñeco de crochet de los dos), en una carpeta llamada "Justos". En Telegram salía solo el dominio por dos causas: no había etiquetas Open Graph y `robots.txt` (`User-agent: * / Disallow: /`) bloqueaba también a los robots de vista previa. Hecho: foto original → `web/img/Justos/Estrellita_y_Jampier.webp`; `desarrollo/generar_imagen_redes.mjs` (Playwright) arma `Estrellita_y_Jampier_redes.jpg` 1200×630 (foto completa centrada + fondo difuminado + corazones de la app; JPEG ≤ 250 KB, 146 KB); etiquetas og:/twitter: absolutas en `index.html`; `robots.txt` con un grupo por robot de vista previa (`Disallow:` vacío) y `*` → `Disallow: /`; prueba nueva `prueba_redes.mjs` (39). 507 pruebas OK. Se lanzó un workflow de investigación (3 investigadores + verificador) sobre formatos, límites y robots; se publicó sin esperarlo porque JX quería terminar (la lista de robots permitidos es un superconjunto inofensivo).
 
 ## Preferencias de JX (respetarlas siempre)
 
@@ -55,7 +57,7 @@ Agregar una entrada al final de cada sesión, ANTES de publicar.
 
 - Todo en español: interfaz, comentarios, nombres de variables y funciones.
 - Código comentado y fácil de seguir; zonas editables marcadas (✏️ en `web/js/config.js`).
-- Imágenes entregadas en **WebP**. Excepción técnica: los íconos de la app (`web/img/*.png`) son PNG porque iPhone (apple-touch-icon) y el manifest lo exigen.
+- Imágenes entregadas en **WebP**. Excepciones técnicas: los íconos de la app (`web/img/*.png`) son PNG porque iPhone (apple-touch-icon) y el manifest lo exigen, y la imagen para compartir (`web/img/Justos/Estrellita_y_Jampier_redes.jpg`) es JPEG porque es el único formato que todas las redes muestran en la vista previa.
 - Archivos entregables con nombres descriptivos y guiones bajos (ej. `Messenger_Estrellita_y_Jampier.zip`).
 - Él prefiere que Claude proponga las ideas y mejoras ("dame lo mejor"), y que se le pregunte con formularios de opciones cuando hay decisiones.
 - Verificar en la web la información técnica actual (Supabase y Cloudflare cambian seguido).
@@ -95,6 +97,10 @@ web/                      ← lo único que publica Cloudflare Pages (Build outp
                           /index.html → / y una respuesta redirigida rompe abrir la app sin señal
   manifest.webmanifest    PWA + atajo "Te extraño" (?accion=te-extrano)
   _headers                CSP y cabeceras de seguridad de Cloudflare
+  robots.txt              buscadores y robots de IA fuera; robots de vista previa (TelegramBot, facebookexternalhit,
+                          Facebot, WhatsApp, Twitterbot, LinkedInBot, Slackbot, Discordbot…) adentro, un grupo por robot
+  img/Justos/             foto especial de la pareja (Estrellita_y_Jampier.webp, original vertical) y la imagen
+                          Open Graph Estrellita_y_Jampier_redes.jpg (1200×630, la arma desarrollo/generar_imagen_redes.mjs)
 supabase/01_estructura.sql           tablas, RLS, RPC, realtime, bucket (idempotente)
 supabase/02_nueva_contrasena.sql     plantilla de emergencia para la contraseña interna de una cuenta
 supabase/03_pin.sql                  ✏️ poner el PIN de los dos / desbloquear
@@ -123,6 +129,8 @@ Si cambias algo aquí, cambia los tres lugares.
 
 ## Invariantes (no romper)
 
+- Vista previa al compartir: las URLs de `og:url`, `og:image`, `og:image:secure_url` y `twitter:image` son ABSOLUTAS y usan el dominio de Pages (`<name de wrangler.toml>.pages.dev`). Si cambia el dominio, cambiarlas. `robots.txt` nunca pierde el grupo `User-agent: *` + `Disallow: /` (privacidad), y los robots de vista previa conservan su propio grupo. El `noindex` (meta + `X-Robots-Tag`) se queda.
+
 - Máximo 2 cuentas: trigger `crear_perfil` en `auth.users`. `mensajes.remitente` es `on delete restrict` (no se puede borrar una cuenta con mensajes).
 - El servidor fija `remitente`, fechas y estados al insertar (`preparar_mensaje`): el cliente no puede falsificarlos.
 - Sincronización por `actualizado_en > última - 3 s` (trigger en cada update). Bandeja offline con `client_id` idempotente.
@@ -142,6 +150,7 @@ Si cambias algo aquí, cambia los tres lugares.
 - `prueba_ingreso.mjs` (59) y `prueba_app.mjs` (32) — navegador (Edge por defecto, `apoyo_navegador.mjs`): ingreso, bloqueo, cambio de PIN, app conectada a un Supabase imitado (dominio `eyj.prueba` + `--unsafely-treat-insecure-origin-as-secure` porque PBKDF2 necesita contexto seguro), "Casi listo", clave secreta, y la app completa en demo. Reemplazaron a los `.py`.
 - `prueba_sin_senal.mjs` + `servidor_cloudflare.mjs` — abrir sin señal con las redirecciones de Cloudflare. `npm run ver` sirve `web/` en http://localhost:8080.
 - `prueba_generador.mjs` — generador de claves VAPID.
+- `prueba_redes.mjs` (39) — vista previa al compartir: etiquetas og:/twitter: absolutas y con el dominio de `wrangler.toml`, imagen JPEG 1200×630 ≤ 300 KB, `robots.txt` evaluado como RFC 9309 (buscadores fuera, robots de vista previa adentro) y la portada/imagen servidas por `servidor_cloudflare.mjs` a cada robot. `npm run imagen:redes` rehace la imagen (`-- --original "ruta"` para cambiar la foto).
 - En Windows los archivos están con CRLF (core.autocrlf=true); usar `fileURLToPath`/`pathToFileURL`, nunca `URL.pathname`, para rutas.
 Instrucciones en `desarrollo/LEEME_PRUEBAS.md`.
 

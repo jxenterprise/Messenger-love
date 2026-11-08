@@ -1,3 +1,50 @@
-# Chat privado: ningún buscador debe indexarlo
+# ==========================================================================
+# robots.txt — Messenger Estrellita y Jampier ❤️
+# --------------------------------------------------------------------------
+# Chat privado: los BUSCADORES (Google, Bing…) y los robots de IA no deben
+# entrar. Pero los robots que arman la VISTA PREVIA al compartir el enlace
+# (WhatsApp, Telegram, Facebook, X…) sí pueden leer la portada y la imagen
+# de img/Justos/. Igual nadie ve mensajes: todo está detrás del PIN.
+#
+# Cómo lo leen los robots: cada uno obedece SOLO el grupo que lo nombra.
+# Los que no aparecen abajo obedecen el último grupo ("*"): no entrar.
+# "Disallow:" vacío = puede entrar (es la forma que entienden todos).
+# ==========================================================================
+
+# ---- Robots de vista previa al compartir: pueden entrar ----
+User-agent: TelegramBot
+Disallow:
+
+User-agent: facebookexternalhit
+Disallow:
+
+User-agent: Facebot
+Disallow:
+
+User-agent: WhatsApp
+Disallow:
+
+User-agent: Twitterbot
+Disallow:
+
+User-agent: LinkedInBot
+Disallow:
+
+User-agent: Slackbot-LinkExpanding
+Disallow:
+
+User-agent: Slackbot
+Disallow:
+
+User-agent: Discordbot
+Disallow:
+
+User-agent: Pinterestbot
+Disallow:
+
+User-agent: SkypeUriPreview
+Disallow:
+
+# ---- Todos los demás (Google, Bing, robots de IA…): no entrar ----
 User-agent: *
 Disallow: /

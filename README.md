@@ -6,7 +6,7 @@ Todo funciona con planes **gratis**: Supabase (la base de datos y el tiempo real
 
 > Tiempo total la primera vez: unos 40 minutos, con calma. Haz los pasos en orden y no te saltes ninguno.
 
-> 📍 **Estado actual (domingo 8 de noviembre de 2026, 3:25 p. m., hora de Colombia) · versión v1.6:** la app está **conectada a Supabase** (proyecto `messenger-eyj`, São Paulo), publicada en Cloudflare y **funcionando entre los dos**. Para entrar: **"Soy Jampier" o "Soy Estrellita" + el PIN**. Los ajustes y los avisos **no se reinician nunca** (quedan en la base de datos), hay cámara, se puede **vaciar el chat solo para ti o para los dos**, y el **despertador automático** de GitHub evita que Supabase pause el proyecto. El SQL de la v1.5 ya está ejecutado en Supabase (8 de noviembre, ~3:10 p. m.). Si falta instalarla en algún celular, mira los pasos 9 y 10. Lo nuevo de cada versión está en [Novedades](#novedades).
+> 📍 **Estado actual (domingo 8 de noviembre de 2026, 3:45 p. m., hora de Colombia) · versión v1.7:** la app está **conectada a Supabase** (proyecto `messenger-eyj`, São Paulo), publicada en Cloudflare y **funcionando entre los dos**. Para entrar: **"Soy Jampier" o "Soy Estrellita" + el PIN**. Los ajustes y los avisos **no se reinician nunca** (quedan en la base de datos), hay cámara, se puede **vaciar el chat solo para ti o para los dos**, el **despertador automático** de GitHub evita que Supabase pause el proyecto y, desde la v1.7, **al compartir el enlace sale su foto especial** (vista previa Open Graph). Si falta instalarla en algún celular, mira los pasos 9 y 10. Lo nuevo de cada versión está en [Novedades](#novedades).
 
 ---
 
@@ -16,6 +16,8 @@ Todo funciona con planes **gratis**: Supabase (la base de datos y el tiempo real
 |---|---|
 | `web/` | **La app.** Esta carpeta (y solo esta) es la que publica Cloudflare. |
 | `web/js/config.js` | ✏️ El único archivo que tienes que editar: datos de Supabase, las personas de los botones "Soy …" (`PERSONAS`) y la versión (`VERSION`). |
+| `web/img/Justos/` | Su foto especial (`Estrellita_y_Jampier.webp`) y la imagen que sale al **compartir el enlace** (`Estrellita_y_Jampier_redes.jpg`, 1200 × 630). Ver [Compartir el enlace](#compartir-el-enlace-la-vista-previa-con-su-foto). |
+| `web/robots.txt` | Deja fuera a los buscadores (chat privado), pero deja entrar a los robots que arman la vista previa al compartir (WhatsApp, Telegram, Facebook, X…). |
 | `supabase/01_estructura.sql` | Crea la base de datos y todas las reglas de seguridad. |
 | `supabase/03_pin.sql` | ✏️ Crea el PIN de los dos (y desbloquea si hubo muchos intentos fallidos). |
 | `supabase/02_nueva_contrasena.sql` | Plantilla de emergencia para la contraseña interna de una cuenta (casi nunca se usa). |
@@ -228,6 +230,18 @@ Cuando todo funcione: Supabase → **Realtime** → **Settings** → apaga **All
 
 ---
 
+## Compartir el enlace: la vista previa con su foto
+
+Cuando pegan la dirección `.pages.dev` en WhatsApp, Telegram, Facebook, Messenger, Instagram, X, iMessage o Discord, sale una tarjeta con **su foto especial**, el título "Messenger Estrellita y Jampier ❤️" y el texto "Nuestro rincón privado 💜". Eso se llama **Open Graph** (las etiquetas `og:` del `<head>` de `web/index.html`).
+
+- **La imagen:** `web/img/Justos/Estrellita_y_Jampier_redes.jpg`, de 1200 × 630 (la medida que piden las redes). La foto va **completa en el centro** sobre un fondo hecho con la misma foto difuminada y los corazones de la app, para que no se corte ni en la vista grande ni en la miniatura cuadrada de WhatsApp o Telegram. Es **JPEG** (y no WebP, como las demás imágenes) porque es el único formato que todas las redes muestran, y pesa menos de 250 KB porque WhatsApp descarta las imágenes pesadas.
+- **Cambiar la foto:** en la carpeta `desarrollo` corre `npm run imagen:redes -- --original "C:\ruta\de\la\foto.png"`. Guarda la foto nueva en WebP en `web/img/Justos/` y vuelve a armar la imagen. Después sube los cambios a GitHub.
+- **Si ya habían compartido el enlace antes** (como en Telegram, que mostraba solo el dominio), esa red guarda la vista previa vieja un tiempo:
+  - **Telegram:** escríbele al bot oficial **@WebpageBot**, mándale la dirección y responde con la vista previa nueva.
+  - **Facebook, Messenger, Instagram:** abre el [Depurador de contenido compartido de Meta](https://developers.facebook.com/tools/debug/), pega la dirección y toca **Volver a extraer** (*Scrape Again*).
+  - **WhatsApp:** no tiene botón para borrar la caché. Si en un chat sigue saliendo la tarjeta vieja, comparte la dirección con `?v=2` al final (`https://messenger-estrellita-jampier-18.pages.dev/?v=2`): abre la misma app y la tarjeta se arma de nuevo.
+- **Privacidad:** la foto, el título y el texto de la tarjeta los ve cualquiera que reciba el enlace (para eso existen). Los mensajes no: siguen detrás del nombre + PIN. Los buscadores siguen bloqueados (`noindex` + `robots.txt`), así que la página no aparece en Google. El repositorio de GitHub es público, así que la foto también se ve ahí.
+
 ## Privacidad: qué protege y qué no
 
 **Protege:**
@@ -300,6 +314,8 @@ Cloudflare Pages: gratis, sin límite de visitas. Para ver el consumo: Supabase 
 
 **Cerré sesión y no me llegan avisos** → al cerrar sesión los avisos **siguen** llegando a ese celular (así lo pediste). Si no llegan, revisa la lista de "No llegan notificaciones" de abajo.
 
+**Al compartir el enlace no sale la foto** → esa red guarda la vista previa vieja. Refréscala como dice [Compartir el enlace](#compartir-el-enlace-la-vista-previa-con-su-foto) (Telegram: @WebpageBot; Facebook: el depurador de Meta; WhatsApp: agrega `?v=2`). Si cambiaste de dominio, actualiza `og:url`, `og:image` y `twitter:image` en `web/index.html` (y `npm run prueba:redes` te avisa si algo no cuadra).
+
 **La app no muestra los cambios que subí** → cambia `VERSION` en `web/sw.js` y en `web/js/config.js` antes de subir; luego en el celular toca **Actualizar** en el aviso "Hay una versión nueva de la app ✨".
 
 ---
@@ -307,6 +323,14 @@ Cloudflare Pages: gratis, sin límite de visitas. Para ver el consumo: Supabase 
 ## Novedades
 
 Numeración: **v1.0, v1.1, v1.2 … hasta v1.50; después v2.0**. Las primeras versiones tenían otro número; aquí van con los dos.
+
+**v1.7 · domingo 8 de noviembre de 2026, 3:45 p. m. — Al compartir el enlace sale su foto**
+- **Vista previa al compartir (Open Graph):** al pegar el enlace en WhatsApp, Telegram, Facebook, Messenger, Instagram, X, iMessage o Discord sale una tarjeta con **su foto especial**, el título y "Nuestro rincón privado 💜".
+- La foto vive en la carpeta nueva **`web/img/Justos/`**: la original en WebP y la imagen para compartir en JPEG de 1200 × 630 (146 KB). La foto va completa en el centro con un fondo difuminado y los corazones de la app.
+- **Arreglado: en Telegram el enlace salía solo con el nombre del dominio.** Además de faltar las etiquetas, `robots.txt` le cerraba la puerta a **todos** los robots, también a los que arman las vistas previas. Ahora los buscadores siguen fuera, pero los robots de vista previa (Telegram, Facebook/WhatsApp, X, LinkedIn, Slack, Discord…) pueden leer la portada y la imagen.
+- Nuevos: `npm run imagen:redes` (rehace la imagen o la cambia por otra foto) y la prueba `npm run prueba:redes` (39 revisiones: etiquetas, imagen, robots.txt y respuesta como en Cloudflare).
+- Si ya habían compartido el enlace antes, mira cómo refrescar la vista previa en [Compartir el enlace](#compartir-el-enlace-la-vista-previa-con-su-foto).
+- Pruebas: 507 en total, todas bien (39 nuevas de la vista previa; sus dos celulares y los 10 tamaños de pantalla siguen sin errores).
 
 **v1.6 · domingo 8 de noviembre de 2026, 3:25 p. m. — Vaciar el chat solo para ti**
 - En el menú ⋮ → *Borrar mensajes* ahora hay dos botones: **Vaciar solo para mí** (el chat queda vacío en tu celular; tu pareja lo sigue viendo y todo queda guardado en la nube) y **Vaciar para los dos** (como en la v1.5, con doble confirmación).
@@ -380,6 +404,10 @@ Numeración: **v1.0, v1.1, v1.2 … hasta v1.50; después v2.0**. Las primeras v
 - [Supabase · Crear funciones desde el panel](https://supabase.com/docs/guides/functions/quickstart-dashboard)
 - [Supabase · Pausa de proyectos gratis](https://supabase.com/docs/guides/platform/free-project-pausing)
 - [GitHub Actions · Desactivar y activar flujos (60 días sin actividad)](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/disable-and-enable-workflows)
+- [The Open Graph protocol (og:title, og:image…)](https://ogp.me/)
+- [Meta · Buenas prácticas para compartir (webmasters) y Depurador](https://developers.facebook.com/docs/sharing/webmasters/)
+- [X · Etiquetas de las tarjetas (summary_large_image)](https://developer.x.com/en/docs/x-for-websites/cards/overview/markup)
+- [RFC 9309 · Cómo leen los robots el archivo robots.txt](https://www.rfc-editor.org/rfc/rfc9309)
 - [Supabase · Facturación y límites del plan gratis](https://supabase.com/docs/guides/platform/billing-on-supabase)
 - [Supabase · auth.admin.generateLink](https://supabase.com/docs/reference/javascript/auth-admin-generatelink)
 - [Supabase · auth.verifyOtp](https://supabase.com/docs/reference/javascript/auth-verifyotp)
