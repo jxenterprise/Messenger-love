@@ -4,13 +4,13 @@
 //  Es la imagen que sale al compartir el enlace en WhatsApp, Telegram,
 //  Facebook, Messenger, Instagram, X, iMessage, Discord…
 //
-//  · Toma la foto especial de web/img/Justos/Estrellita_y_Jampier.webp
+//  · Toma la foto especial de web/img/Juntos/Estrellita_y_Jampier.webp
 //    (vertical) y arma una imagen horizontal de 1200 × 630 (la medida que
 //    piden las redes): la foto COMPLETA en el centro, sin recortar, sobre un
 //    fondo hecho con la misma foto difuminada + los corazones de la app.
 //    Así también se ve bien cuando WhatsApp o Telegram la recortan en
 //    cuadrado (la foto queda dentro del cuadrado del centro).
-//  · Guarda web/img/Justos/Estrellita_y_Jampier_redes.jpg (JPEG: es el único
+//  · Guarda web/img/Juntos/Estrellita_y_Jampier_redes.jpg (JPEG: es el único
 //    formato que TODAS las redes muestran; ver el README) por debajo de
 //    MAX_KB para que WhatsApp no la descarte.
 //
@@ -18,12 +18,12 @@
 //    npm run imagen:redes
 //    npm run imagen:redes -- --original "C:\ruta\foto.png"   ← cambiar la foto
 //  Con --original, primero convierte esa foto a WebP y la guarda como
-//  web/img/Justos/Estrellita_y_Jampier.webp; después arma la imagen.
+//  web/img/Juntos/Estrellita_y_Jampier.webp; después arma la imagen.
 // ============================================================================
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { abrirNavegador, aqui } from './apoyo_navegador.mjs';
 
-const CARPETA = aqui('../web/img/Justos/');
+const CARPETA = aqui('../web/img/Juntos/');
 const FOTO = `${CARPETA}Estrellita_y_Jampier.webp`;
 const SALIDA = `${CARPETA}Estrellita_y_Jampier_redes.jpg`;
 const ANCHO = 1200;
@@ -66,7 +66,7 @@ try {
     writeFileSync(FOTO, Buffer.from(webp.base64, 'base64'));
     console.log(`Foto guardada en WebP: ${webp.ancho} × ${webp.alto}, ${kb(Buffer.from(webp.base64, 'base64').length)}`);
   }
-  if (!existsSync(FOTO)) throw new Error('Falta web/img/Justos/Estrellita_y_Jampier.webp (usa --original "ruta de la foto").');
+  if (!existsSync(FOTO)) throw new Error('Falta web/img/Juntos/Estrellita_y_Jampier.webp (usa --original "ruta de la foto").');
 
   // 2) La composición de 1200 × 630
   const foto = comoDataUrl(FOTO);
@@ -92,7 +92,7 @@ try {
   }
   if (jpg.length > MAX_KB * 1024) throw new Error(`La imagen quedó de ${kb(jpg.length)} (máximo ${MAX_KB} KB).`);
   writeFileSync(SALIDA, jpg);
-  console.log(`Imagen para compartir: ${ANCHO} × ${ALTO}, calidad ${calidad}, ${kb(jpg.length)} → web/img/Justos/Estrellita_y_Jampier_redes.jpg`);
+  console.log(`Imagen para compartir: ${ANCHO} × ${ALTO}, calidad ${calidad}, ${kb(jpg.length)} → web/img/Juntos/Estrellita_y_Jampier_redes.jpg`);
 } finally {
   await navegador.close();
 }

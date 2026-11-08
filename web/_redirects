@@ -1,0 +1,9 @@
+# ==========================================================================
+# _redirects — Redirecciones de Cloudflare Pages
+# --------------------------------------------------------------------------
+# En la v1.7 la carpeta de la foto se llamó "Justos" (error de escritura);
+# desde la v1.8 se llama "Juntos". Si alguna red guardó la dirección vieja
+# de la imagen para compartir, esto la lleva a la nueva (301 = permanente).
+# Solo funciona porque está en la raíz de lo publicado (web/).
+# ==========================================================================
+/img/Justos/* /img/Juntos/:splat 301

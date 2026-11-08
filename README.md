@@ -6,7 +6,7 @@ Todo funciona con planes **gratis**: Supabase (la base de datos y el tiempo real
 
 > Tiempo total la primera vez: unos 40 minutos, con calma. Haz los pasos en orden y no te saltes ninguno.
 
-> 📍 **Estado actual (domingo 8 de noviembre de 2026, 3:45 p. m., hora de Colombia) · versión v1.7:** la app está **conectada a Supabase** (proyecto `messenger-eyj`, São Paulo), publicada en Cloudflare y **funcionando entre los dos**. Para entrar: **"Soy Jampier" o "Soy Estrellita" + el PIN**. Los ajustes y los avisos **no se reinician nunca** (quedan en la base de datos), hay cámara, se puede **vaciar el chat solo para ti o para los dos**, el **despertador automático** de GitHub evita que Supabase pause el proyecto y, desde la v1.7, **al compartir el enlace sale su foto especial** (vista previa Open Graph). Si falta instalarla en algún celular, mira los pasos 9 y 10. Lo nuevo de cada versión está en [Novedades](#novedades).
+> 📍 **Estado actual (domingo 8 de noviembre de 2026, 4:00 p. m., hora de Colombia) · versión v1.8:** la app está **conectada a Supabase** (proyecto `messenger-eyj`, São Paulo), publicada en Cloudflare y **funcionando entre los dos**. Para entrar: **"Soy Jampier" o "Soy Estrellita" + el PIN**. Los ajustes y los avisos **no se reinician nunca** (quedan en la base de datos), hay cámara, se puede **vaciar el chat solo para ti o para los dos**, el **despertador automático** de GitHub evita que Supabase pause el proyecto y **al compartir el enlace sale su foto especial** (vista previa Open Graph; la foto vive en `web/img/Juntos/`). Si falta instalarla en algún celular, mira los pasos 9 y 10. Lo nuevo de cada versión está en [Novedades](#novedades).
 
 ---
 
@@ -16,7 +16,7 @@ Todo funciona con planes **gratis**: Supabase (la base de datos y el tiempo real
 |---|---|
 | `web/` | **La app.** Esta carpeta (y solo esta) es la que publica Cloudflare. |
 | `web/js/config.js` | ✏️ El único archivo que tienes que editar: datos de Supabase, las personas de los botones "Soy …" (`PERSONAS`) y la versión (`VERSION`). |
-| `web/img/Justos/` | Su foto especial (`Estrellita_y_Jampier.webp`) y la imagen que sale al **compartir el enlace** (`Estrellita_y_Jampier_redes.jpg`, 1200 × 630). Ver [Compartir el enlace](#compartir-el-enlace-la-vista-previa-con-su-foto). |
+| `web/img/Juntos/` | Su foto especial (`Estrellita_y_Jampier.webp`) y la imagen que sale al **compartir el enlace** (`Estrellita_y_Jampier_redes.jpg`, 1200 × 630). Ver [Compartir el enlace](#compartir-el-enlace-la-vista-previa-con-su-foto). |
 | `web/robots.txt` | Deja fuera a los buscadores (chat privado), pero deja entrar a los robots que arman la vista previa al compartir (WhatsApp, Telegram, Facebook, X…). |
 | `supabase/01_estructura.sql` | Crea la base de datos y todas las reglas de seguridad. |
 | `supabase/03_pin.sql` | ✏️ Crea el PIN de los dos (y desbloquea si hubo muchos intentos fallidos). |
@@ -234,11 +234,12 @@ Cuando todo funcione: Supabase → **Realtime** → **Settings** → apaga **All
 
 Cuando pegan la dirección `.pages.dev` en WhatsApp, Telegram, Facebook, Messenger, Instagram, X, iMessage o Discord, sale una tarjeta con **su foto especial**, el título "Messenger Estrellita y Jampier ❤️" y el texto "Nuestro rincón privado 💜". Eso se llama **Open Graph** (las etiquetas `og:` del `<head>` de `web/index.html`).
 
-- **La imagen:** `web/img/Justos/Estrellita_y_Jampier_redes.jpg`, de 1200 × 630 (la medida que piden las redes). La foto va **completa en el centro** sobre un fondo hecho con la misma foto difuminada y los corazones de la app, para que no se corte ni en la vista grande ni en la miniatura cuadrada de WhatsApp o Telegram. Es **JPEG** (y no WebP, como las demás imágenes) porque es el único formato que todas las redes muestran, y pesa menos de 250 KB porque WhatsApp descarta las imágenes pesadas.
-- **Cambiar la foto:** en la carpeta `desarrollo` corre `npm run imagen:redes -- --original "C:\ruta\de\la\foto.png"`. Guarda la foto nueva en WebP en `web/img/Justos/` y vuelve a armar la imagen. Después sube los cambios a GitHub.
+- **La imagen:** `web/img/Juntos/Estrellita_y_Jampier_redes.jpg`, de 1200 × 630 (la medida que piden las redes). La foto va **completa en el centro** sobre un fondo hecho con la misma foto difuminada y los corazones de la app, para que no se corte ni en la vista grande ni en la miniatura cuadrada de WhatsApp o Telegram. Es **JPEG** (y no WebP, como las demás imágenes) porque es el único formato que todas las redes muestran, y pesa menos de 250 KB porque WhatsApp descarta las imágenes pesadas.
+- **Cambiar la foto:** en la carpeta `desarrollo` corre `npm run imagen:redes -- --original "C:\ruta\de\la\foto.png"`. Guarda la foto nueva en WebP en `web/img/Juntos/` y vuelve a armar la imagen. Después sube los cambios a GitHub.
 - **Si ya habían compartido el enlace antes** (como en Telegram, que mostraba solo el dominio), esa red guarda la vista previa vieja un tiempo:
   - **Telegram:** escríbele al bot oficial **@WebpageBot**, mándale la dirección y responde con la vista previa nueva.
   - **Facebook, Messenger, Instagram:** abre el [Depurador de contenido compartido de Meta](https://developers.facebook.com/tools/debug/), pega la dirección y toca **Volver a extraer** (*Scrape Again*).
+  - **Si un enlace se compartió entre la v1.7 y la v1.8,** su imagen apuntaba a `img/Justos/` (la carpeta se llamó así por un error de escritura). Esa dirección vieja ahora lleva sola a `img/Juntos/` (`web/_redirects`), así que esas tarjetas tampoco se rompen.
   - **WhatsApp:** no tiene botón para borrar la caché. Si en un chat sigue saliendo la tarjeta vieja, comparte la dirección con `?v=2` al final (`https://messenger-estrellita-jampier-18.pages.dev/?v=2`): abre la misma app y la tarjeta se arma de nuevo.
 - **Privacidad:** la foto, el título y el texto de la tarjeta los ve cualquiera que reciba el enlace (para eso existen). Los mensajes no: siguen detrás del nombre + PIN. Los buscadores siguen bloqueados (`noindex` + `robots.txt`), así que la página no aparece en Google. El repositorio de GitHub es público, así que la foto también se ve ahí.
 
@@ -323,6 +324,12 @@ Cloudflare Pages: gratis, sin límite de visitas. Para ver el consumo: Supabase 
 ## Novedades
 
 Numeración: **v1.0, v1.1, v1.2 … hasta v1.50; después v2.0**. Las primeras versiones tenían otro número; aquí van con los dos.
+
+**v1.8 · domingo 8 de noviembre de 2026, 4:00 p. m. — La carpeta se llama "Juntos"**
+- La carpeta de la foto se llama ahora **`web/img/Juntos/`** (en la v1.7 quedó "Justos" por un error de escritura). Se actualizaron las etiquetas Open Graph, el generador, las pruebas y la documentación.
+- Nuevo `web/_redirects`: la dirección vieja `img/Justos/…` lleva a `img/Juntos/…` (301), por si alguna red ya la había guardado.
+- Si ya refrescaron la vista previa en Telegram con @WebpageBot, mándenle el enlace otra vez para que tome la dirección nueva (la foto es la misma).
+- Pruebas: 508 en total, todas bien.
 
 **v1.7 · domingo 8 de noviembre de 2026, 3:45 p. m. — Al compartir el enlace sale su foto**
 - **Vista previa al compartir (Open Graph):** al pegar el enlace en WhatsApp, Telegram, Facebook, Messenger, Instagram, X, iMessage o Discord sale una tarjeta con **su foto especial**, el título y "Nuestro rincón privado 💜".

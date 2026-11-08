@@ -4,7 +4,7 @@
 # Chat privado: los BUSCADORES (Google, Bing…) y los robots de IA no deben
 # entrar. Pero los robots que arman la VISTA PREVIA al compartir el enlace
 # (WhatsApp, Telegram, Facebook, X…) sí pueden leer la portada y la imagen
-# de img/Justos/. Igual nadie ve mensajes: todo está detrás del PIN.
+# de img/Juntos/. Igual nadie ve mensajes: todo está detrás del PIN.
 #
 # Cómo lo leen los robots: cada uno obedece SOLO el grupo que lo nombra.
 # Los que no aparecen abajo obedecen el último grupo ("*"): no entrar.

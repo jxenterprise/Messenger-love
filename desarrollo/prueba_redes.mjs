@@ -47,7 +47,7 @@ ok(meta['og:type'] === 'website', 'og:type = website');
 ok(meta['og:url'] === dominio, `og:url es la dirección publicada (${dominio}, sale del name de wrangler.toml)`);
 const imagen = meta['og:image'] || '';
 ok(imagen.startsWith(dominio), 'og:image es una dirección COMPLETA del mismo dominio (las redes no entienden rutas relativas)');
-ok(imagen.includes('/img/Justos/'), 'la imagen vive en la carpeta img/Justos');
+ok(imagen.includes('/img/Juntos/'), 'la imagen vive en la carpeta img/Juntos');
 ok(meta['og:image:secure_url'] === imagen && meta['twitter:image'] === imagen, 'og:image:secure_url y twitter:image apuntan a la misma imagen');
 ok(meta['twitter:card'] === 'summary_large_image', 'twitter:card = summary_large_image (imagen grande en X)');
 ok(!!meta['og:image:alt'] && meta['twitter:image:alt'] === meta['og:image:alt'], 'la imagen tiene texto alternativo');
@@ -69,7 +69,8 @@ ok(medidas && String(medidas.ancho) === meta['og:image:width'] && String(medidas
 ok(medidas?.ancho === 1200 && medidas?.alto === 630, 'mide 1200 × 630 (la medida recomendada por las redes)');
 ok(meta['og:image:type'] === 'image/jpeg', 'og:image:type = image/jpeg');
 ok(bytes.length <= MAX_KB * 1024, `pesa ${Math.round(bytes.length / 1024)} KB (máximo ${MAX_KB} KB para WhatsApp)`);
-ok(statSync(aqui('../web/img/Justos/Estrellita_y_Jampier.webp')).size > 0, 'la foto original también está guardada (en WebP) para rehacer la imagen');
+ok(statSync(aqui('../web/img/Juntos/Estrellita_y_Jampier.webp')).size > 0, 'la foto original también está guardada (en WebP) para rehacer la imagen');
+ok(/^\/img\/Justos\/\*\s+\/img\/Juntos\/:splat\s+301\s*$/m.test(leer('../web/_redirects')), 'la dirección vieja (img/Justos, v1.7) lleva a la nueva con un 301 (_redirects)');
 
 /* ---------- 3) robots.txt ---------- */
 console.log('3) robots.txt: buscadores fuera, vista previa adentro');
