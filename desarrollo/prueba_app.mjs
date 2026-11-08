@@ -125,17 +125,47 @@ try {
   for (const d of '1234') await p.click(`#teclado [data-digito="${d}"]`);
   await p.waitForSelector('#pantalla-pin', { state: 'hidden', timeout: 5000 }).catch(() => {});
   ok(!(await p.isVisible('#pantalla-pin')), 'bloquear y abrir con el PIN');
-  console.log('4b) Borrar mensajes: vaciar el chat para los dos');
+  console.log('4b) Borrar mensajes: vaciar solo para mí y para los dos');
   await p.click('#boton-menu');
   await p.click('.hoja [data-accion="borrar"]');
   await p.waitForSelector('.hoja [data-accion="vaciar"]');
   ok((await p.textContent('.hoja')).includes('Eliminar para los dos'), 'explica cómo borrar un solo mensaje');
+  await p.waitForTimeout(500); // que termine de subir la hoja
+  const alto = p.viewportSize().height;
+  const cajas = await Promise.all(['vaciar-mio', 'vaciar'].map((a) => p.locator(`.hoja [data-accion="${a}"]`).boundingBox()));
+  const cancelar = await p.locator('.hoja .botones-borrar [data-cerrar]').boundingBox();
+  ok([...cajas, cancelar].every((c) => c && c.y >= 0 && c.y + c.height <= alto), 'los 3 botones se ven completos sin deslizar');
   await p.screenshot({ path: `${capturas}app-13b-borrar-mensajes.png` });
   await p.click('.hoja [data-accion="vaciar"]');
   await p.waitForSelector('.dialogo');
   await p.click('.dialogo [data-respuesta="no"]');
   await p.waitForTimeout(400);
   ok((await p.$$('#mensajes .fila')).length > 0, 'si se arrepiente, no se borra nada');
+
+  // Vaciar SOLO PARA MÍ: se va de mi pantalla, pero no se borra de la nube
+  await p.click('#boton-menu');
+  await p.click('.hoja [data-accion="borrar"]');
+  await p.click('.hoja [data-accion="vaciar-mio"]');
+  await p.waitForSelector('.dialogo');
+  ok((await p.textContent('.dialogo')).includes('lo') && (await p.textContent('#dialogo-titulo')).includes('solo para ti'), 'vaciar solo para mí pide confirmar');
+  await p.click('.dialogo [data-respuesta="si"]');
+  await p.waitForFunction(() => document.querySelectorAll('#mensajes .fila').length === 0, null, { timeout: 5000 });
+  ok(true, 'solo para mí: el chat queda vacío en mi pantalla');
+  ok(await p.evaluate(() => Object.keys(localStorage).some((k) => k.startsWith('eyj:oculto:'))), 'queda guardado hasta dónde se vació (también va a la nube)');
+  await p.click('#boton-menu');
+  await p.click('.hoja [data-accion="buscar"]');
+  await p.waitForSelector('#texto-busqueda');
+  await p.fill('#texto-busqueda', 'amor');
+  await p.waitForTimeout(900);
+  ok((await p.$$('.resultado')).length === 0, 'la búsqueda tampoco muestra los mensajes vaciados');
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(300);
+  await p.fill('#entrada-mensaje', 'hola otra vez');
+  await p.click('#boton-principal');
+  await p.waitForTimeout(800);
+  ok((await p.$$('#mensajes .fila')).length >= 1, 'los mensajes nuevos sí se ven');
+
+  // Vaciar PARA LOS DOS
   await p.click('#boton-menu');
   await p.click('.hoja [data-accion="borrar"]');
   await p.click('.hoja [data-accion="vaciar"]');

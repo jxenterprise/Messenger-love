@@ -49,6 +49,7 @@ const ctx = {
   puedeLeer: () => ctx.puedeVer() && app.panelesAbiertos === 0,
   ajustes: () => ({ sonido: local.leer('sonido', true) }),
   guardarPreferencia: (clave, valor) => guardarPreferencia(clave, valor),
+  subirAjustes: () => marcarParaSubir(),
   tienePin: () => !!ctx.yo && tienePin(ctx.yo),
   puedeInstalar: () => !VISTA_PREVIA && !plataforma().standalone,
   abrirAjustes: () => abrirAjustes(),
@@ -161,12 +162,20 @@ function preferenciasLocales() {
     const valor = local.leer(clave, null);
     if (valor !== null) p[clave] = valor;
   }
+  // "Vaciar solo para mí" (se guarda por persona: en un mismo celular pueden entrar los dos)
+  const oculto = ctx.yo && local.leer(`oculto:${ctx.yo}`, null);
+  if (oculto) p['oculto-hasta'] = oculto;
   return p;
 }
 
 /** Guarda un ajuste para siempre: en este celular y en la nube. */
 function guardarPreferencia(clave, valor) {
   local.guardar(clave, valor);
+  marcarParaSubir();
+}
+
+/** Sube los ajustes a la nube (o en cuanto vuelva la señal). */
+function marcarParaSubir() {
   if (!ctx.yo) return;
   local.guardar(clavePendientes(), true);
   subirPreferencias();
@@ -200,6 +209,8 @@ async function sincronizarPreferencias() {
     for (const clave of ['sonido', 'bloqueo-seg', 'velocidad-audio', 'avisos']) {
       if (clave in servidor) local.guardar(clave, servidor[clave]);
     }
+    // Chat vaciado "solo para mí" en otro dispositivo: aquí también
+    if (servidor['oculto-hasta']) chat.ocultarHasta(servidor['oculto-hasta'], { desdeNube: true });
   }
   await revisarAvisos();
 }

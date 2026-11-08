@@ -6,7 +6,7 @@ Todo funciona con planes **gratis**: Supabase (la base de datos y el tiempo real
 
 > Tiempo total la primera vez: unos 40 minutos, con calma. Haz los pasos en orden y no te saltes ninguno.
 
-> 📍 **Estado actual (domingo 8 de noviembre de 2026, 3:15 p. m., hora de Colombia) · versión v1.5:** la app está **conectada a Supabase** (proyecto `messenger-eyj`, São Paulo) y publicada en Cloudflare. Para entrar: **"Soy Jampier" o "Soy Estrellita" + el PIN**. Nuevo en v1.5: los ajustes y los avisos **ya no se reinician nunca** (quedan guardados en la base de datos), cámara para mandar fotos, **vaciar el chat** para los dos y el **despertador automático** en GitHub. ⚠️ Para que todo esto funcione hay que **volver a ejecutar `supabase/01_estructura.sql`** en el SQL Editor de Supabase (es seguro repetirlo). Falta instalarla en los dos celulares y activar los avisos (pasos 9 y 10). Lo nuevo de cada versión está en [Novedades](#novedades).
+> 📍 **Estado actual (domingo 8 de noviembre de 2026, 3:25 p. m., hora de Colombia) · versión v1.6:** la app está **conectada a Supabase** (proyecto `messenger-eyj`, São Paulo), publicada en Cloudflare y **funcionando entre los dos**. Para entrar: **"Soy Jampier" o "Soy Estrellita" + el PIN**. Los ajustes y los avisos **no se reinician nunca** (quedan en la base de datos), hay cámara, se puede **vaciar el chat solo para ti o para los dos**, y el **despertador automático** de GitHub evita que Supabase pause el proyecto. El SQL de la v1.5 ya está ejecutado en Supabase (8 de noviembre, ~3:10 p. m.). Si falta instalarla en algún celular, mira los pasos 9 y 10. Lo nuevo de cada versión está en [Novedades](#novedades).
 
 ---
 
@@ -213,7 +213,10 @@ Cuando todo funcione: Supabase → **Realtime** → **Settings** → apaga **All
 - "En línea", "últ. vez" y "escribiendo…" / "grabando audio…".
 - Fotos de la galería o **tomadas con la cámara** (botón 📷, en el celular). Se comprimen a WebP y **nunca pasan de 5 MB**, aunque el celular las tome enormes. Notas de voz con onda y velocidad 1x / 1.5x / 2x.
 - Responder (deslizando el mensaje a la derecha), reaccionar, copiar, editar (15 min) y eliminar para los dos.
-- **Borrar mensajes** (menú ⋮ → *Borrar mensajes*): uno solo (mantén presionado tu mensaje → *Eliminar para los dos*) o **vaciar todo el chat para los dos**, con doble confirmación. Se borran también las fotos y notas de voz de la nube y desaparecen de los dos celulares.
+- **Borrar mensajes** (menú ⋮ → *Borrar mensajes*), tres opciones:
+  - **Uno solo:** mantén presionado tu mensaje → *Eliminar para los dos*.
+  - **Vaciar solo para mí:** el chat queda vacío en tu celular (y en tus otros dispositivos), pero tu pareja lo sigue viendo y nada se borra de la nube.
+  - **Vaciar para los dos:** con doble confirmación. Se borran los mensajes, fotos y notas de voz de la nube y desaparecen de los dos celulares. No se puede deshacer.
 - **Nada se reinicia:** tema, fondo, sonido, bloqueo, velocidad de los audios y notificaciones quedan guardados en la base de datos. Aunque cierres sesión, borres los datos o cambies de celular, al entrar todo vuelve como lo dejaste.
 - 💌 **Te extraño**: tu pareja recibe una pantalla especial con lluvia de corazones. En Android, dejando presionado el ícono aparece el atajo "Enviar un Te extraño".
 - Entrar tocando **"Soy Jampier" / "Soy Estrellita"** y el PIN de 4 números (el mismo para los dos), bloqueo automático con ese PIN y la pantalla se difumina en el selector de apps.
@@ -304,6 +307,12 @@ Cloudflare Pages: gratis, sin límite de visitas. Para ver el consumo: Supabase 
 ## Novedades
 
 Numeración: **v1.0, v1.1, v1.2 … hasta v1.50; después v2.0**. Las primeras versiones tenían otro número; aquí van con los dos.
+
+**v1.6 · domingo 8 de noviembre de 2026, 3:25 p. m. — Vaciar el chat solo para ti**
+- En el menú ⋮ → *Borrar mensajes* ahora hay dos botones: **Vaciar solo para mí** (el chat queda vacío en tu celular; tu pareja lo sigue viendo y todo queda guardado en la nube) y **Vaciar para los dos** (como en la v1.5, con doble confirmación).
+- "Solo para mí" se guarda en tus ajustes de la nube: también queda vacío en tus otros dispositivos y no vuelve a aparecer aunque cierres sesión. Los mensajes nuevos sí se ven, y la búsqueda no muestra los que vaciaste.
+- El SQL de la v1.5 ya quedó ejecutado en Supabase (comprobado: la función `vaciar_chat`, la tabla `chat_estado` y la columna `preferencias` existen y nadie sin sesión puede usarlas). La v1.6 no necesita SQL nuevo.
+- Pruebas: 469 en total, todas bien (32 de la app, con una nueva que revisa que los 3 botones se vean completos en el celular sin deslizar).
 
 **v1.5 · domingo 8 de noviembre de 2026, 3:15 p. m. — Nada se reinicia, cámara, vaciar el chat y despertador**
 - **Arreglado: al volver a entrar, las notificaciones aparecían apagadas.** Había dos causas: cerrar sesión (o un PIN cambiado) apagaba los avisos, y al abrir la app la suscripción no se renovaba. Ahora los avisos se quedan como los dejes, se renuevan solos cada vez que entras y **solo se apagan si los apagas en Ajustes**. Al cerrar sesión siguen llegando.

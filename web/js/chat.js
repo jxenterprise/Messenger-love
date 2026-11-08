@@ -77,6 +77,7 @@ function estadoInicial() {
     teExtranoPendiente: null,
     diaRender: claveDia(Date.now()),
     intervalos: [],
+    corte: 0, // ms: lo enviado hasta aquí no se muestra (chat vaciado para los dos o solo para mí)
   };
 }
 let estado = estadoInicial();
@@ -89,6 +90,14 @@ let tipoPuntero = 'mouse';
 const esMio = (m) => m.remitente === ctx.yo;
 const fechaDe = (m) => m.creado_en || m._creadoLocal;
 const luego = (fn) => setTimeout(fn, 60);
+const fechaMs = (iso) => Date.parse(iso || '') || 0;
+
+/** Hasta cuándo no se muestran mensajes aquí: el chat vaciado para los dos o "solo para mí". */
+function calcularCorte() {
+  return Math.max(fechaMs(local.leer(`vaciado:${ctx.yo}`, '')), fechaMs(local.leer(`oculto:${ctx.yo}`, '')));
+}
+/** ¿Este mensaje quedó antes del corte (no se muestra)? */
+const quedoOculto = (f) => !!estado.corte && !!f?.creado_en && fechaMs(f.creado_en) <= estado.corte;
 
 function nombreDe(id) {
   if (id === ctx.yo) return ctx.perfiles.get(id)?.nombre || 'Tú';
@@ -159,6 +168,7 @@ export async function abrirChat() {
   cerrarChat();
   estado = estadoInicial();
   estado.abierto = true;
+  estado.corte = calcularCorte();
   el.mensajes.replaceChildren();
   nodos.clear();
   el.entrada.value = local.leer(`borrador:${ctx.yo}`, '') || '';
@@ -207,8 +217,7 @@ export function cerrarChat() {
 async function cargarInicial() {
   const cache = await kv.leer(`cache:${ctx.yo}`);
   if (cache?.mensajes?.length) {
-    const vaciado = Date.parse(local.leer(`vaciado:${ctx.yo}`, '') || '') || 0;
-    for (const f of cache.mensajes) if (!vaciado || Date.parse(f.creado_en) > vaciado) aplicarSilencioso(f);
+    for (const f of cache.mensajes) aplicarSilencioso(f); // los de antes del corte se saltan solos
     estado.ultimaSync = cache.ultimaSync || estado.ultimaSync;
   }
   await cargarBandeja();
@@ -221,7 +230,7 @@ async function cargarInicial() {
       await sincronizar();
     } else {
       const filas = await ctx.backend.cargarMensajes({ limite: 50 });
-      estado.hayMasAntiguos = filas.length === 50;
+      estado.hayMasAntiguos = filas.length === 50 && !filas.some(quedoOculto);
       for (const f of filas) aplicarSilencioso(f);
       reconstruirOrden();
       renderizarTodo();
@@ -245,6 +254,10 @@ async function cargarInicial() {
 /** Guarda un mensaje del servidor en memoria, sin tocar la pantalla. */
 function aplicarSilencioso(fila) {
   if (!fila?.client_id) return null;
+  if (quedoOculto(fila)) {
+    actualizarUltimaSync(fila.actualizado_en); // no se muestra, pero ya se revisó: no volver a pedirlo
+    return null;
+  }
   const cid = fila.client_id;
   const anterior = estado.mensajes.get(cid);
   if (anterior?.actualizado_en && fila.actualizado_en && anterior.actualizado_en > fila.actualizado_en) return anterior;
@@ -280,7 +293,7 @@ export async function sincronizar() {
   try {
     if (!estado.ultimaSync) {
       const filas = await ctx.backend.cargarMensajes({ limite: 50 });
-      estado.hayMasAntiguos = filas.length === 50;
+      estado.hayMasAntiguos = filas.length === 50 && !filas.some(quedoOculto);
       aplicarLote(filas);
       return;
     }
@@ -327,7 +340,8 @@ async function cargarAntiguos() {
   el.cargandoAntiguos.hidden = false;
   try {
     const filas = await ctx.backend.cargarMensajes({ antesDe: masViejo.creado_en, limite: LIMITE_PAGINA });
-    if (filas.length < LIMITE_PAGINA) estado.hayMasAntiguos = false;
+    // Si llegamos al corte, lo de antes ya no se muestra: no hay más que cargar
+    if (filas.length < LIMITE_PAGINA || filas.some(quedoOculto)) estado.hayMasAntiguos = false;
     if (filas.length) {
       for (const f of filas) aplicarSilencioso(f);
       reconstruirOrden();
@@ -347,6 +361,10 @@ async function cargarAntiguos() {
    ========================================================================== */
 function alRecibirMensaje(fila, { desdeSync = false } = {}) {
   if (!estado.abierto || !fila?.client_id) return;
+  if (quedoOculto(fila)) {
+    actualizarUltimaSync(fila.actualizado_en); // vaciado (para los dos o solo para mí): no se muestra
+    return;
+  }
   const cid = fila.client_id;
   const anterior = estado.mensajes.get(cid);
   if (anterior?.actualizado_en && fila.actualizado_en && anterior.actualizado_en > fila.actualizado_en) return;
@@ -1760,7 +1778,7 @@ export function abrirBusqueda() {
     }
     vacio('Buscando…');
     try {
-      const filas = await ctx.backend.buscar(consulta);
+      const filas = (await ctx.backend.buscar(consulta)).filter((f) => !quedoOculto(f));
       if (!filas.length) {
         vacio(`No hay mensajes con “${consulta}”.`);
         return;
@@ -1851,20 +1869,86 @@ export function abrirMenuCabecera() {
    ========================================================================== */
 function abrirBorrarMensajes() {
   const gesto = plataforma().tactil ? 'Mantén presionado' : 'Haz clic derecho en';
+  const pareja = nombreDe(ctx.pareja()?.id);
   const { capa, cerrar } = hoja(
     `<h2>Borrar mensajes</h2>
     <ol class="pasos">
       <li><span><strong>Uno solo:</strong> ${gesto} un mensaje tuyo y toca <strong>Eliminar para los dos</strong>.</span></li>
-      <li><span><strong>Todo el chat:</strong> se borran todos los mensajes, fotos y notas de voz de los dos celulares. No se puede deshacer.</span></li>
+      <li><span><strong>Vaciar solo para mí:</strong> el chat queda vacío en tu celular. ${escaparHtml(pareja)} lo sigue viendo y todo queda guardado.</span></li>
+      <li><span><strong>Vaciar para los dos:</strong> se borran todos los mensajes, fotos y notas de voz de los dos celulares. No se puede deshacer.</span></li>
     </ol>
-    <button type="button" class="boton peligro ancho" data-accion="vaciar">${icono('basura')}Vaciar todo el chat</button>
-    <button type="button" class="boton fantasma ancho" data-cerrar>Cancelar</button>`,
+    <div class="botones-borrar">
+      <button type="button" class="boton secundario ancho" data-accion="vaciar-mio">${icono('basura')}Vaciar solo para mí</button>
+      <button type="button" class="boton peligro ancho" data-accion="vaciar">${icono('basura')}Vaciar para los dos</button>
+      <button type="button" class="boton fantasma ancho" data-cerrar>Cancelar</button>
+    </div>`,
     'Borrar mensajes',
   );
+  capa.querySelector('[data-accion="vaciar-mio"]').addEventListener('click', () => {
+    cerrar();
+    luego(vaciarSoloParaMi);
+  });
   capa.querySelector('[data-accion="vaciar"]').addEventListener('click', () => {
     cerrar();
     luego(vaciarChat);
   });
+}
+
+/** Vacía el chat solo en mi pantalla: la pareja lo sigue viendo y nada se borra de la nube. */
+async function vaciarSoloParaMi() {
+  const pareja = nombreDe(ctx.pareja()?.id);
+  const si = await confirmar({
+    titulo: '¿Vaciar el chat solo para ti?',
+    texto: `Los mensajes desaparecen de tu celular (y de tus otros dispositivos). ${pareja} los sigue viendo y quedan guardados.`,
+    aceptar: 'Vaciar para mí',
+    peligro: true,
+  });
+  if (!si) return;
+  // El corte es el último mensaje que ya llegó (hora del servidor, no la del celular)
+  let ultimo = '';
+  for (const m of estado.mensajes.values()) if (m.creado_en && fechaMs(m.creado_en) > fechaMs(ultimo)) ultimo = m.creado_en;
+  ocultarHasta(ultimo || new Date().toISOString());
+  aviso('Listo: el chat quedó vacío solo para ti');
+}
+
+/**
+ * "Vaciar solo para mí": no muestra nada enviado hasta `iso`. Se guarda en
+ * mis ajustes de la nube, así también queda vacío en mis otros dispositivos.
+ * @param {string} iso
+ * @param {{ desdeNube?: boolean }} [opciones]
+ */
+export function ocultarHasta(iso, { desdeNube = false } = {}) {
+  if (!ctx?.yo || !fechaMs(iso) || fechaMs(iso) <= fechaMs(local.leer(`oculto:${ctx.yo}`, ''))) return;
+  local.guardar(`oculto:${ctx.yo}`, iso);
+  if (!desdeNube) ctx.subirAjustes?.();
+  quitarHastaCorte();
+}
+
+/** Quita de la pantalla y de lo guardado lo que quedó antes del corte. */
+function quitarHastaCorte() {
+  if (!estado.abierto) return 0;
+  estado.corte = calcularCorte();
+  let quitados = 0;
+  for (const [cid, m] of estado.mensajes) {
+    if (quedoOculto(m)) {
+      if (m._urlLocal) URL.revokeObjectURL(m._urlLocal);
+      estado.mensajes.delete(cid);
+      quitados++;
+    }
+  }
+  estado.porId.clear();
+  for (const [cid, m] of estado.mensajes) if (m.id) estado.porId.set(m.id, cid);
+  estado.hayMasAntiguos = false;
+  estado.sinLeerAbajo = 0;
+  if (estado.respondiendoA || estado.editando) cancelarContexto();
+  detenerAudio();
+  reconstruirOrden();
+  renderizarTodo();
+  bajarAlFondo(false);
+  actualizarInicioChat();
+  actualizarFranjas();
+  guardarCacheRetrasado();
+  return quitados;
 }
 
 /** Vacía el chat para los dos, con doble confirmación. */
@@ -1921,26 +2005,7 @@ function aplicarVaciado(vaciadoEn, vaciadoPor) {
   const previo = Date.parse(local.leer(clave, '') || '') || 0;
   if (previo >= corte) return; // ya se aplicó
   local.guardar(clave, vaciadoEn);
-  let quitados = 0;
-  for (const [cid, m] of estado.mensajes) {
-    if (m.creado_en && Date.parse(m.creado_en) <= corte) {
-      if (m._urlLocal) URL.revokeObjectURL(m._urlLocal);
-      estado.mensajes.delete(cid);
-      quitados++;
-    }
-  }
-  estado.porId.clear();
-  for (const [cid, m] of estado.mensajes) if (m.id) estado.porId.set(m.id, cid);
-  estado.hayMasAntiguos = false;
-  estado.sinLeerAbajo = 0;
-  if (estado.respondiendoA || estado.editando) cancelarContexto();
-  detenerAudio();
-  reconstruirOrden();
-  renderizarTodo();
-  bajarAlFondo(false);
-  actualizarInicioChat();
-  actualizarFranjas();
-  guardarCacheRetrasado();
+  const quitados = quitarHastaCorte();
   // Las fotos guardadas para ver sin señal ya no se necesitan
   if ('caches' in window) caches.delete('eyj-media-v1').catch(() => {});
   if (quitados && vaciadoPor && vaciadoPor !== ctx.yo) aviso(`${nombreDe(vaciadoPor)} vació el chat`);
