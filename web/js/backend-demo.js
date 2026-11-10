@@ -134,6 +134,10 @@ export class BackendDemo {
       [J, 38 * min, { contenido: 'Como a las 6. ¿Te paso a buscar?', editado: true }],
       [E, 37 * min, { contenido: '¡Siii! 😍', reacciones: { [J]: '❤️' } }],
       [E, 36 * min, { contenido: '❤️' }],
+      // Dos mensajes eliminados: en el chat salen como "Se eliminó este
+      // mensaje" y en la papelera se ven completos (los dos pueden verlos).
+      [E, 20 * hora, { contenido: 'Ay no, eso no era para ti 🙈 jajaja', borrado: true }],
+      [J, 11 * hora, { contenido: 'Mejor te lo digo en persona 😅', borrado: true }],
     ];
 
     const porClave = {};
@@ -150,7 +154,8 @@ export class BackendDemo {
         responde_a: campos.responde ? porClave[campos.responde] : null,
         reacciones: campos.reacciones || {},
         editado_en: campos.editado ? hace(haceMs - 30000) : null,
-        borrado: false,
+        borrado: !!campos.borrado,
+        borrado_en: campos.borrado ? hace(haceMs - 90000) : null,
         entregado_en: hace(haceMs - 5000),
         leido_en: hace(haceMs - 20000),
         creado_en: creado,
@@ -284,10 +289,19 @@ export class BackendDemo {
     this._actualizar(id, { contenido: texto, editado_en: ahoraIso() });
   }
 
+  /** Eliminar para los dos: se oculta del chat y queda en la papelera. */
   async borrar(id) {
     const m = this.mensajes.find((x) => x.id === id);
     if (!m || m.remitente !== this.usuario.id) throw new Error('Solo puedes eliminar tus mensajes.');
-    this._actualizar(id, { borrado: true, contenido: null, media_path: null, media_meta: null, reacciones: {} });
+    this._actualizar(id, { borrado: true, borrado_en: ahoraIso() });
+  }
+
+  /** La papelera: todo lo que cualquiera de los dos eliminó del chat. */
+  async cargarBorrados() {
+    return this.mensajes
+      .filter((m) => m.borrado)
+      .sort((a, b) => (a.borrado_en < b.borrado_en ? 1 : -1))
+      .map((m) => ({ ...m }));
   }
 
   async buscar(texto) {

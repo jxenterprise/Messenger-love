@@ -1006,6 +1006,14 @@ function abrirAjustes() {
           </div>
         </section>
 
+        ${
+          VISTA_PREVIA
+            ? ''
+            : `<section class="seccion-ajustes"><h3>Mensajes</h3><div class="grupo-ajustes">
+                <button type="button" class="opcion" data-accion="papelera">${icono('historial')}<span class="textos"><strong>Papelera</strong><span>Lo que eliminen del chat queda guardado aquí, y los dos pueden verlo.</span></span>${icono('derecha', 'flecha')}</button>
+              </div></section>`
+        }
+
         <section class="seccion-ajustes">
           <h3>Seguridad</h3>
           <div class="grupo-ajustes">
@@ -1118,6 +1126,7 @@ function abrirAjustes() {
     }
     const accion = e.target.closest('[data-accion]')?.dataset.accion;
     if (accion === 'foto') $('#selector-avatar').click();
+    else if (accion === 'papelera') chat.irAPapelera();
     else if (accion === 'cambiar-pin') abrirCambioDePin();
     else if (accion === 'bloquear') {
       cerrar();

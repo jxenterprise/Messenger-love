@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="es-CO">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Papelera · Messenger Estrellita y Jampier ❤️</title>
+  <meta name="description" content="Los mensajes que eliminamos del chat.">
+  <!-- Es parte del chat privado: ningún buscador debe mostrarla -->
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#FBF3EE" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#110D11" media="(prefers-color-scheme: dark)">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/img/favicon-48.png" sizes="48x48" type="image/png">
+  <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+  <link rel="preload" href="/fonts/nunito-variable.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/papelera/papelera.css">
+  <script src="/js/tema-inicial.js"></script>
+  <script type="module" src="/papelera/papelera.js"></script>
+</head>
+<body>
+  <noscript>Esta página necesita JavaScript activado para funcionar.</noscript>
+
+  <div class="papelera-pagina patron">
+
+    <!-- ================= Cabecera ================= -->
+    <header class="papelera-cabecera">
+      <a class="boton-icono" href="/" aria-label="Volver al chat" data-icono="atras"></a>
+      <div class="papelera-titulo">
+        <h1>Papelera</h1>
+        <p id="resumen">Cargando…</p>
+      </div>
+    </header>
+
+    <main class="papelera-cuerpo">
+
+      <!-- Cargando -->
+      <section id="estado-cargando" class="papelera-aviso">
+        <p>Abriendo la papelera…</p>
+      </section>
+
+      <!-- Hay que entrar primero -->
+      <section id="estado-sin-sesion" class="papelera-aviso" hidden>
+        <div class="icono-grande" data-icono="candado" aria-hidden="true"></div>
+        <h2>Entra primero al chat</h2>
+        <p>Esta página es de ustedes dos, así que necesita tu sesión. Abre el chat, entra con tu nombre y el PIN, y vuelve aquí.</p>
+        <a class="boton" href="/">Ir al chat</a>
+      </section>
+
+      <!-- PIN (el mismo del chat) -->
+      <section id="estado-pin" class="papelera-aviso" hidden>
+        <div class="icono-grande" data-icono="candado" aria-hidden="true"></div>
+        <h2>Escribe tu PIN</h2>
+        <p>El mismo con el que abres el chat.</p>
+        <form id="forma-pin" autocomplete="off">
+          <input id="campo-pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4"
+                 class="campo-pin-papelera" aria-label="PIN de 4 números" autocomplete="off">
+          <p class="error-pin" id="error-pin" role="alert"></p>
+          <button class="boton ancho" type="submit">Abrir la papelera</button>
+        </form>
+        <a class="boton fantasma ancho" href="/">Volver al chat</a>
+      </section>
+
+      <!-- No se pudo cargar -->
+      <section id="estado-error" class="papelera-aviso" hidden>
+        <div class="icono-grande" data-icono="sinWifi" aria-hidden="true"></div>
+        <h2>No se pudo abrir</h2>
+        <p id="texto-error">Revisa tu internet y vuelve a intentar.</p>
+        <button class="boton" type="button" id="reintentar">Reintentar</button>
+      </section>
+
+      <!-- Papelera vacía -->
+      <section id="estado-vacio" class="papelera-aviso" hidden>
+        <div class="icono-grande" data-icono="historial" aria-hidden="true"></div>
+        <h2>No hay nada eliminado</h2>
+        <p>Cuando alguno de los dos elimine un mensaje del chat, aquí va a quedar guardado con la fecha y lo que decía.</p>
+        <a class="boton" href="/">Volver al chat</a>
+      </section>
+
+      <!-- La lista -->
+      <section id="estado-lista" hidden>
+        <p class="papelera-nota">
+          Aquí queda lo que cualquiera de los dos eliminó del chat. <strong>Los dos ven lo mismo.</strong>
+          Para que no quede nada, usen <em>Vaciar todo el chat</em> en el menú del chat.
+        </p>
+        <div class="segmentos" role="group" aria-label="Filtrar" id="filtros"></div>
+        <div id="lista"></div>
+      </section>
+
+    </main>
+
+    <footer class="papelera-pie">
+      <p>Messenger Estrellita y Jampier ❤️ · <span data-version></span></p>
+    </footer>
+  </div>
+</body>
+</html>

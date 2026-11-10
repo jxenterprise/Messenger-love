@@ -7,7 +7,7 @@
    ✏️ Cada vez que cambies archivos de la app, sube el número de VERSION:
       así todos los celulares reciben la versión nueva.
    ========================================================================== */
-const VERSION = 'eyj-v1.8';
+const VERSION = 'eyj-v1.9';
 const CACHE_APP = `${VERSION}-app`;
 const CACHE_MEDIA = 'eyj-media-v1';
 const MAX_FOTOS = 400;
@@ -41,10 +41,18 @@ const ARCHIVOS_APP = [
   'img/badge-96.png',
 ];
 
+// Páginas aparte (la Papelera). Se guardan para abrirlas sin señal, pero si
+// alguna fallara, la app principal se instala igual: no es parte del chat.
+const ARCHIVOS_EXTRA = ['papelera/', 'papelera/papelera.css', 'papelera/papelera.js'];
+
 /* ---------- Instalar y activar ---------- */
 self.addEventListener('install', (evento) => {
   evento.waitUntil(
-    caches.open(CACHE_APP).then((cache) => cache.addAll(ARCHIVOS_APP.map((url) => new Request(url, { cache: 'reload' })))),
+    (async () => {
+      const cache = await caches.open(CACHE_APP);
+      await cache.addAll(ARCHIVOS_APP.map((url) => new Request(url, { cache: 'reload' })));
+      await Promise.allSettled(ARCHIVOS_EXTRA.map((url) => cache.add(new Request(url, { cache: 'reload' }))));
+    })(),
   );
 });
 
@@ -140,7 +148,8 @@ self.addEventListener('fetch', (evento) => {
   if (url.origin !== self.location.origin) return; // Supabase y demás: directo a internet
 
   if (peticion.mode === 'navigate') {
-    evento.respondWith(primeroRed(peticion, './'));
+    // Cada página guarda su propia copia: el chat y la papelera
+    evento.respondWith(primeroRed(peticion, url.pathname.startsWith('/papelera') ? 'papelera/' : './'));
     return;
   }
   if (/\/(fonts|img|js\/vendor)\//.test(url.pathname)) {

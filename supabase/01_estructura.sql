@@ -88,6 +88,11 @@ create index if not exists mensajes_actualizado_idx on public.mensajes (actualiz
 create index if not exists mensajes_remitente_idx   on public.mensajes (remitente, creado_en desc);
 create index if not exists mensajes_responde_idx    on public.mensajes (responde_a);
 
+-- Papelera (v1.9): cuándo se eliminó "para los dos". El mensaje se oculta del
+-- chat pero NO se destruye: queda en la papelera, que los DOS pueden abrir.
+alter table public.mensajes add column if not exists borrado_en timestamptz;
+create index if not exists mensajes_borrado_idx on public.mensajes (borrado_en desc) where borrado;
+
 create table if not exists public.suscripciones_push (
   id          bigint generated always as identity primary key,
   usuario     uuid not null default auth.uid() references public.perfiles (id) on delete cascade,
@@ -374,28 +379,26 @@ begin
 end;
 $$;
 
--- Eliminar para los dos. Devuelve la ruta del archivo para que la app lo borre.
-create or replace function public.borrar_mensaje(p_mensaje uuid)
-returns text
+-- Eliminar para los dos: el mensaje se OCULTA del chat y pasa a la papelera.
+-- Desde la v1.9 no se destruye el texto ni se borra la foto o la nota de voz:
+-- los DOS pueden verlo en /papelera (así quedó acordado; no es algo de uno
+-- solo). Para que no quede nada, está "Vaciar todo el chat", que sí borra.
+drop function if exists public.borrar_mensaje(uuid);  -- antes devolvía la ruta del archivo para borrarlo
+create function public.borrar_mensaje(p_mensaje uuid)
+returns void
 language plpgsql security definer
 set search_path = ''
 as $$
-declare
-  ruta text;
 begin
   if not privado.es_miembro() then
     raise exception 'No autorizado.';
   end if;
-  select media_path into ruta
-    from public.mensajes
+  update public.mensajes
+     set borrado = true, borrado_en = now()
    where id = p_mensaje and remitente = auth.uid() and not borrado;
   if not found then
     raise exception 'Solo puedes eliminar tus propios mensajes.';
   end if;
-  update public.mensajes
-     set borrado = true, contenido = null, media_path = null, media_meta = null, reacciones = '{}'::jsonb
-   where id = p_mensaje;
-  return ruta;
 end;
 $$;
 

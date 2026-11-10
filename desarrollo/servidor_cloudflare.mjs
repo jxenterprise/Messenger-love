@@ -51,6 +51,8 @@ createServer(async (req, res) => {
   let archivo = normalize(join(carpeta, ruta));
   if (ruta.endsWith('/')) archivo = join(archivo, 'index.html');
   else if (!extname(ruta) && (await existe(`${archivo}.html`))) archivo = `${archivo}.html`;
+  // Carpeta con index.html (por ejemplo /papelera), como lo sirve Cloudflare
+  else if (!extname(ruta) && (await existe(join(archivo, 'index.html')))) archivo = join(archivo, 'index.html');
   if (!(await existe(archivo))) {
     res.writeHead(404, { 'Content-Type': TIPOS['.html'] });
     return res.end(await readFile(join(carpeta, '404.html')).catch(() => ''));

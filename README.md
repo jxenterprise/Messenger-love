@@ -6,7 +6,7 @@ Todo funciona con planes **gratis**: Supabase (la base de datos y el tiempo real
 
 > Tiempo total la primera vez: unos 40 minutos, con calma. Haz los pasos en orden y no te saltes ninguno.
 
-> 📍 **Estado actual (domingo 8 de noviembre de 2026, 4:00 p. m., hora de Colombia) · versión v1.8:** la app está **conectada a Supabase** (proyecto `messenger-eyj`, São Paulo), publicada en Cloudflare y **funcionando entre los dos**. Para entrar: **"Soy Jampier" o "Soy Estrellita" + el PIN**. Los ajustes y los avisos **no se reinician nunca** (quedan en la base de datos), hay cámara, se puede **vaciar el chat solo para ti o para los dos**, el **despertador automático** de GitHub evita que Supabase pause el proyecto y **al compartir el enlace sale su foto especial** (vista previa Open Graph; la foto vive en `web/img/Juntos/`). Si falta instalarla en algún celular, mira los pasos 9 y 10. Lo nuevo de cada versión está en [Novedades](#novedades).
+> 📍 **Estado actual (martes 10 de noviembre de 2026, 7:55 a. m., hora de Colombia) · versión v1.9:** la app está **conectada a Supabase** (proyecto `messenger-eyj`, São Paulo), publicada en Cloudflare y **funcionando entre los dos**. Para entrar: **"Soy Jampier" o "Soy Estrellita" + el PIN**. Los ajustes y los avisos **no se reinician nunca**, hay cámara, se puede **vaciar el chat solo para ti o para los dos**, al compartir el enlace sale su foto, y desde la v1.9 hay una **[Papelera](#la-papelera-los-mensajes-eliminados)**: lo que eliminen del chat queda guardado ahí y **los dos** pueden verlo. ⚠️ Para que la Papelera funcione hay que **volver a ejecutar `supabase/01_estructura.sql`** en el SQL Editor de Supabase (es seguro repetirlo). Lo nuevo de cada versión está en [Novedades](#novedades).
 
 ---
 
@@ -18,6 +18,7 @@ Todo funciona con planes **gratis**: Supabase (la base de datos y el tiempo real
 | `web/js/config.js` | ✏️ El único archivo que tienes que editar: datos de Supabase, las personas de los botones "Soy …" (`PERSONAS`) y la versión (`VERSION`). |
 | `web/img/Juntos/` | Su foto especial (`Estrellita_y_Jampier.webp`) y la imagen que sale al **compartir el enlace** (`Estrellita_y_Jampier_redes.jpg`, 1200 × 630). Ver [Compartir el enlace](#compartir-el-enlace-la-vista-previa-con-su-foto). |
 | `web/robots.txt` | Deja fuera a los buscadores (chat privado), pero deja entrar a los robots que arman la vista previa al compartir (WhatsApp, Telegram, Facebook, X…). |
+| `web/papelera/` | La **Papelera**: la página aparte (`/papelera`) con los mensajes que eliminaron del chat. Ver [La Papelera](#la-papelera-los-mensajes-eliminados). |
 | `supabase/01_estructura.sql` | Crea la base de datos y todas las reglas de seguridad. |
 | `supabase/03_pin.sql` | ✏️ Crea el PIN de los dos (y desbloquea si hubo muchos intentos fallidos). |
 | `supabase/02_nueva_contrasena.sql` | Plantilla de emergencia para la contraseña interna de una cuenta (casi nunca se usa). |
@@ -218,7 +219,8 @@ Cuando todo funcione: Supabase → **Realtime** → **Settings** → apaga **All
 - **Borrar mensajes** (menú ⋮ → *Borrar mensajes*), tres opciones:
   - **Uno solo:** mantén presionado tu mensaje → *Eliminar para los dos*.
   - **Vaciar solo para mí:** el chat queda vacío en tu celular (y en tus otros dispositivos), pero tu pareja lo sigue viendo y nada se borra de la nube.
-  - **Vaciar para los dos:** con doble confirmación. Se borran los mensajes, fotos y notas de voz de la nube y desaparecen de los dos celulares. No se puede deshacer.
+  - **Vaciar para los dos:** con doble confirmación. Se borran los mensajes, fotos y notas de voz de la nube y desaparecen de los dos celulares (también se vacía la Papelera). No se puede deshacer.
+- **Papelera** (menú ⋮ → *Papelera*): lo que cualquiera de los dos elimine del chat queda guardado ahí, con quién lo escribió, qué día lo envió, qué día lo eliminó y qué decía. **La ven los dos por igual.**
 - **Nada se reinicia:** tema, fondo, sonido, bloqueo, velocidad de los audios y notificaciones quedan guardados en la base de datos. Aunque cierres sesión, borres los datos o cambies de celular, al entrar todo vuelve como lo dejaste.
 - 💌 **Te extraño**: tu pareja recibe una pantalla especial con lluvia de corazones. En Android, dejando presionado el ícono aparece el atajo "Enviar un Te extraño".
 - Entrar tocando **"Soy Jampier" / "Soy Estrellita"** y el PIN de 4 números (el mismo para los dos), bloqueo automático con ese PIN y la pantalla se difumina en el selector de apps.
@@ -242,6 +244,16 @@ Cuando pegan la dirección `.pages.dev` en WhatsApp, Telegram, Facebook, Messeng
   - **Si un enlace se compartió entre la v1.7 y la v1.8,** su imagen apuntaba a `img/Justos/` (la carpeta se llamó así por un error de escritura). Esa dirección vieja ahora lleva sola a `img/Juntos/` (`web/_redirects`), así que esas tarjetas tampoco se rompen.
   - **WhatsApp:** no tiene botón para borrar la caché. Si en un chat sigue saliendo la tarjeta vieja, comparte la dirección con `?v=2` al final (`https://messenger-estrellita-jampier-18.pages.dev/?v=2`): abre la misma app y la tarjeta se arma de nuevo.
 - **Privacidad:** la foto, el título y el texto de la tarjeta los ve cualquiera que reciba el enlace (para eso existen). Los mensajes no: siguen detrás del nombre + PIN. Los buscadores siguen bloqueados (`noindex` + `robots.txt`), así que la página no aparece en Google. El repositorio de GitHub es público, así que la foto también se ve ahí.
+
+## La Papelera: los mensajes eliminados
+
+Cuando alguno elimina un mensaje con **Eliminar para los dos**, desaparece del chat… pero no se destruye: queda guardado en la **Papelera**, una página aparte en la misma dirección, [`/papelera`](https://messenger-estrellita-jampier-18.pages.dev/papelera).
+
+- **Se abre** desde el menú ⋮ del chat → **Papelera**, o desde **Ajustes → Mensajes → Papelera**. También escribiendo la dirección.
+- **Muestra**, de lo más reciente a lo más viejo: quién escribió el mensaje, qué día y a qué hora lo envió, **qué día y a qué hora lo eliminó**, y **qué decía** (con la foto o la nota de voz, si tenía). Se puede filtrar por persona.
+- **Es de los dos.** Los dos entran igual y ven exactamente lo mismo: no es una página de uno solo para mirar lo del otro a escondidas. Por eso el chat lo avisa al eliminar ("queda guardado en la Papelera") y lo dice también en Ajustes. Así nadie borra algo creyendo que desapareció cuando no es cierto.
+- **Protegida igual que el chat:** necesita la sesión de una de las 2 cuentas (la base de datos no se la muestra a nadie más) y, si el dispositivo tiene PIN, lo pide antes de abrir.
+- **Para que no quede nada** está **Vaciar todo el chat** (menú ⋮ → *Borrar mensajes*): eso sí borra de verdad los mensajes, las fotos y las notas de voz, y deja la Papelera vacía.
 
 ## Privacidad: qué protege y qué no
 
@@ -315,6 +327,10 @@ Cloudflare Pages: gratis, sin límite de visitas. Para ver el consumo: Supabase 
 
 **Cerré sesión y no me llegan avisos** → al cerrar sesión los avisos **siguen** llegando a ese celular (así lo pediste). Si no llegan, revisa la lista de "No llegan notificaciones" de abajo.
 
+**La Papelera dice "Entra primero al chat"** → esa página necesita tu sesión. Abre el chat, entra con tu nombre y el PIN, y vuelve a `/papelera`.
+
+**En la Papelera no aparece nada de lo que eliminé** → falta el SQL de la v1.9: ejecuta otra vez `supabase/01_estructura.sql` en el SQL Editor (es seguro repetirlo). Lo que se eliminó **antes** de ese cambio no se puede recuperar: en esa versión el texto sí se destruía.
+
 **Al compartir el enlace no sale la foto** → esa red guarda la vista previa vieja. Refréscala como dice [Compartir el enlace](#compartir-el-enlace-la-vista-previa-con-su-foto) (Telegram: @WebpageBot; Facebook: el depurador de Meta; WhatsApp: agrega `?v=2`). Si cambiaste de dominio, actualiza `og:url`, `og:image` y `twitter:image` en `web/index.html` (y `npm run prueba:redes` te avisa si algo no cuadra).
 
 **La app no muestra los cambios que subí** → cambia `VERSION` en `web/sw.js` y en `web/js/config.js` antes de subir; luego en el celular toca **Actualizar** en el aviso "Hay una versión nueva de la app ✨".
@@ -324,6 +340,16 @@ Cloudflare Pages: gratis, sin límite de visitas. Para ver el consumo: Supabase 
 ## Novedades
 
 Numeración: **v1.0, v1.1, v1.2 … hasta v1.50; después v2.0**. Las primeras versiones tenían otro número; aquí van con los dos.
+
+**v1.9 · martes 10 de noviembre de 2026, 7:55 a. m. — La Papelera**
+- **Página nueva `/papelera`** (carpeta `web/papelera/`), con el mismo diseño del chat, el mismo tema claro/oscuro y el fondo de corazones. Se abre desde el menú ⋮ → **Papelera** o desde **Ajustes → Mensajes**.
+- **"Eliminar para los dos" ya no destruye el mensaje:** lo saca del chat y lo guarda en la Papelera con la fecha y la hora en que se eliminó, el texto completo y la foto o la nota de voz. Para borrar de verdad está **Vaciar todo el chat**.
+- **La Papelera es de los dos**, no de uno solo: los dos la abren igual y ven exactamente lo mismo. El chat lo avisa al eliminar y Ajustes también lo dice, para que nadie elimine algo creyendo que desapareció.
+- Protegida como el chat: necesita la sesión de una de las 2 cuentas y pide el PIN del dispositivo. Sin sesión no muestra ni un mensaje.
+- Se puede filtrar por persona, y los mensajes van agrupados por el día en que se eliminaron.
+- **Hay que volver a ejecutar `supabase/01_estructura.sql`** en Supabase (agrega la columna `borrado_en` y cambia `borrar_mensaje`). Es seguro repetirlo.
+- Pruebas nuevas: `npm run prueba:papelera` (39, en el navegador) y la sección 19 de la base de datos.
+- Pruebas: más de 560 en total, todas bien (incluidos sus dos celulares).
 
 **v1.8 · domingo 8 de noviembre de 2026, 4:00 p. m. — La carpeta se llama "Juntos"**
 - La carpeta de la foto se llama ahora **`web/img/Juntos/`** (en la v1.7 quedó "Justos" por un error de escritura). Se actualizaron las etiquetas Open Graph, el generador, las pruebas y la documentación.

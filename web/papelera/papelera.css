@@ -1,0 +1,243 @@
+/* ==========================================================================
+   papelera.css — Solo para la página de la Papelera (/papelera)
+   --------------------------------------------------------------------------
+   Usa los MISMOS colores y medidas del chat (las variables de css/styles.css),
+   así que cambia sola entre el tema claro y el oscuro. Aquí solo va lo que
+   es propio de esta página.
+   ========================================================================== */
+
+.papelera-pagina {
+  position: relative;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--fondo);
+  color: var(--tinta);
+}
+
+/* ---------- Cabecera ---------- */
+.papelera-cabecera {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: calc(10px + var(--seguro-arriba)) var(--gutter-der) 10px var(--gutter-izq);
+  background: var(--superficie-barra);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--borde);
+}
+.papelera-cabecera .boton-icono {
+  flex: none;
+  text-decoration: none;
+  color: var(--acento);
+}
+.papelera-titulo {
+  min-width: 0;
+}
+.papelera-titulo h1 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+.papelera-titulo p {
+  margin: 1px 0 0;
+  font-size: 13px;
+  color: var(--tinta-suave);
+}
+
+/* ---------- Cuerpo ---------- */
+.papelera-cuerpo {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  width: 100%;
+  max-width: var(--ancho-columna);
+  margin: 0 auto;
+  padding: 14px var(--gutter-der) 24px var(--gutter-izq);
+}
+
+.papelera-nota {
+  margin: 0 0 14px;
+  padding: 11px 13px;
+  border-radius: 14px;
+  background: var(--superficie-2);
+  border: 1px solid var(--borde);
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--tinta-suave);
+  text-wrap: pretty;
+}
+
+/* ---------- Avisos (cargando, sin sesión, PIN, vacío, error) ---------- */
+.papelera-aviso {
+  max-width: 24rem;
+  margin: 8vh auto 0;
+  padding: 0 4px;
+  text-align: center;
+}
+.papelera-aviso h2 {
+  margin: 12px 0 6px;
+  font-size: 20px;
+  font-weight: 900;
+  text-wrap: balance;
+}
+.papelera-aviso p {
+  margin: 0 0 16px;
+  color: var(--tinta-suave);
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+.papelera-aviso .boton {
+  width: 100%;
+}
+.papelera-aviso .icono-grande svg {
+  width: 44px;
+  height: 44px;
+  color: var(--acento);
+}
+.campo-pin-papelera {
+  width: 100%;
+  height: 56px;
+  margin-bottom: 10px;
+  padding: 0 16px;
+  border: 1.5px solid var(--campo-borde);
+  border-radius: 16px;
+  background: var(--campo-fondo);
+  color: var(--tinta);
+  font: inherit;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.5em;
+  text-align: center;
+}
+.campo-pin-papelera:focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: 1px;
+}
+.error-pin {
+  min-height: 20px;
+  margin: 0 0 10px !important;
+  color: var(--peligro) !important;
+  font-size: 14px;
+  font-weight: 700;
+}
+#forma-pin {
+  margin-bottom: 10px;
+}
+
+/* ---------- Filtros ---------- */
+#filtros {
+  margin-bottom: 14px;
+}
+#filtros:empty {
+  display: none;
+}
+
+/* ---------- Día ---------- */
+.papelera-dia {
+  margin: 20px 0 10px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--tinta-suave);
+  text-transform: none;
+}
+.papelera-dia:first-child {
+  margin-top: 4px;
+}
+
+/* ---------- Cada mensaje eliminado ---------- */
+.eliminado {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 12px 13px;
+  border-radius: 16px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  box-shadow: var(--sombra-burbuja);
+}
+.eliminado .avatar {
+  flex: none;
+  width: 38px;
+  height: 38px;
+}
+.eliminado .contenido {
+  min-width: 0;
+  flex: 1;
+}
+.eliminado .quien {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.eliminado .quien strong {
+  font-size: 15px;
+  font-weight: 800;
+}
+.eliminado .quien .cuando {
+  font-size: 12.5px;
+  color: var(--tinta-tenue);
+}
+.eliminado .texto {
+  font-size: 15.5px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.eliminado .texto a {
+  color: var(--acento);
+}
+.eliminado .pie {
+  margin-top: 7px;
+  font-size: 12.5px;
+  color: var(--tinta-tenue);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+.eliminado .pie .marca-borrado {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--peligro);
+  font-weight: 700;
+}
+.eliminado .pie svg {
+  width: 14px;
+  height: 14px;
+}
+.eliminado img.foto {
+  display: block;
+  max-width: min(100%, 260px);
+  max-height: 260px;
+  margin-top: 4px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+.eliminado audio {
+  display: block;
+  width: min(100%, 300px);
+  margin-top: 6px;
+}
+.eliminado .sin-texto {
+  color: var(--tinta-tenue);
+  font-style: italic;
+}
+
+/* ---------- Pie ---------- */
+.papelera-pie {
+  position: relative;
+  z-index: 1;
+  padding: 10px var(--gutter-der) calc(14px + var(--seguro-abajo)) var(--gutter-izq);
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--tinta-tenue);
+}
+.papelera-pie p {
+  margin: 0;
+}

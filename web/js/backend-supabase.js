@@ -57,7 +57,9 @@ export class BackendSupabase {
 
   /* ---------- Sesión ---------- */
   async iniciar() {
-    if (!window.supabase?.createClient) await cargarScript('js/vendor/supabase.js');
+    // La ruta se calcula desde este archivo (js/), no desde la página: así
+    // también funciona en páginas de otra carpeta, como /papelera.
+    if (!window.supabase?.createClient) await cargarScript(new URL('./vendor/supabase.js', import.meta.url).href);
     this.sb = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: CLAVE_SESION },
     });
@@ -278,9 +280,16 @@ export class BackendSupabase {
     revisar(await this.sb.rpc('editar_mensaje', { p_mensaje: id, p_texto: texto }));
   }
 
+  /** Eliminar para los dos: se oculta del chat y queda en la papelera. */
   async borrar(id) {
-    const ruta = revisar(await this.sb.rpc('borrar_mensaje', { p_mensaje: id }));
-    if (ruta) await this.borrarMedia(ruta);
+    revisar(await this.sb.rpc('borrar_mensaje', { p_mensaje: id }));
+  }
+
+  /** La papelera: todo lo que cualquiera de los dos eliminó del chat. */
+  async cargarBorrados({ limite = 500 } = {}) {
+    return revisar(
+      await this.sb.from('mensajes').select('*').eq('borrado', true).order('borrado_en', { ascending: false }).limit(limite),
+    );
   }
 
   /**

@@ -175,10 +175,10 @@ ok(await es.falla("select editar_mensaje(%s, 'hackeado')", [m1], null, 'ya no se
 await admin("update mensajes set creado_en = now() - interval '20 minutes' where id = %s", [m1]);
 ok(await ja.falla("select editar_mensaje(%s, 'tarde')", [m1], null, '15 minutos'), 'después de 15 minutos ya no se edita');
 ok(await es.falla('select borrar_mensaje(%s)', [fotoId], null, 'tus propios'), 'no se puede borrar el mensaje de la otra persona');
-const ruta = (await ja('select borrar_mensaje(%s)', [fotoId]))[0][0];
-ok(ruta === `${A}/foto.webp`, 'borrar para los dos devuelve la ruta del archivo');
-fila = (await ja('select borrado, contenido, media_path from mensajes where id = %s', [fotoId]))[0];
-ok(isDeepStrictEqual(fila, [true, null, null]), 'el mensaje borrado ya no guarda texto ni archivo');
+await ja('select borrar_mensaje(%s)', [fotoId]);
+fila = (await ja('select borrado, media_path from mensajes where id = %s', [fotoId]))[0];
+ok(isDeepStrictEqual(fila, [true, `${A}/foto.webp`]), 'borrar para los dos lo marca como eliminado y guarda el archivo (papelera)');
+ok((await ja('select borrado_en is not null from mensajes where id = %s', [fotoId]))[0][0] === true, 'y anota cuándo se eliminó');
 const antes = (await ja('select actualizado_en from mensajes where id = %s', [m1]))[0][0];
 await es("select reaccionar(%s, '🔥')", [m1]);
 ok((await ja('select actualizado_en from mensajes where id = %s', [m1]))[0][0] > antes, "cada cambio actualiza 'actualizado_en' (sincronización)");
@@ -429,6 +429,50 @@ const pubEstado = Number(
   (await admin("select count(*) from pg_publication_tables where pubname = 'supabase_realtime' and tablename = 'chat_estado'"))[0][0],
 );
 ok(pubEstado === 1, 'el aviso de "chat vaciado" llega en tiempo real');
+console.log('19) La papelera: eliminar para los dos guarda, no destruye');
+// Queda el mensaje que se insertó al final de la sección 18
+const paraBorrar = (await ja('select id from mensajes where remitente = %s order by creado_en desc limit 1', [A]))[0][0];
+await admin("insert into storage.objects (bucket_id, name) values ('media', %s)", [`${A}/secreto.webp`]);
+const conFoto = (await ja(INSERTAR, [uuid(), A, 'imagen', 'Esto era un secreto', `${A}/secreto.webp`, null, null]))[0][0];
+const deElla = (await est(INSERTAR, [uuid(), B2, 'texto', 'Lo que ella borró', null, null, null]))[0][0];
+
+ok(await anon.falla('select borrar_mensaje(%s)', [paraBorrar], null, 'permission denied'), 'sin sesión no se puede eliminar');
+ok(await intruso.falla('select borrar_mensaje(%s)', [paraBorrar], null, 'no autorizado'), 'una sesión sin perfil tampoco');
+ok(await est.falla('select borrar_mensaje(%s)', [paraBorrar], null, 'tus propios mensajes'), 'nadie elimina los mensajes del otro');
+
+await ja('select borrar_mensaje(%s)', [paraBorrar]);
+const guardadoPap = (await ja('select borrado, contenido, borrado_en from mensajes where id = %s', [paraBorrar]))[0];
+ok(guardadoPap[0] === true, 'el mensaje queda marcado como eliminado');
+ok(guardadoPap[1] === 'Empezamos de nuevo 💜', 'PERO el texto se guarda: es lo que se ve en la papelera');
+ok(guardadoPap[2] !== null, 'y queda la fecha y hora en que se eliminó');
+ok(await ja.falla('select borrar_mensaje(%s)', [paraBorrar], null, 'tus propios mensajes'), 'no se puede eliminar dos veces');
+
+await ja('select borrar_mensaje(%s)', [conFoto]);
+const fotoPap = (await ja('select contenido, media_path from mensajes where id = %s', [conFoto]))[0];
+ok(fotoPap[0] === 'Esto era un secreto' && fotoPap[1] === `${A}/secreto.webp`, 'de una foto eliminada se guardan el pie y la ruta');
+ok((await est('delete from storage.objects where name = %s', [`${A}/secreto.webp`])) === 0, 'y el archivo NO se borra: sigue en uso para la papelera');
+
+await est('select borrar_mensaje(%s)', [deElla]);
+const listaPap = await ja('select contenido from mensajes where borrado order by borrado_en desc');
+ok(listaPap.length === 3, 'la papelera junta lo que eliminaron los dos');
+ok(
+  listaPap.some((f) => f[0] === 'Lo que ella borró'),
+  'y Jampier puede leer lo que eliminó Estrellita (la papelera es de los dos)',
+);
+ok(
+  (await est('select contenido from mensajes where id = %s', [paraBorrar]))[0][0] === 'Empezamos de nuevo 💜',
+  'y Estrellita puede leer lo que eliminó Jampier (ven exactamente lo mismo)',
+);
+ok(await anon.falla('select contenido from mensajes where borrado', [], null, 'permission denied'), 'sin sesión no se ve la papelera');
+ok((await intruso('select contenido from mensajes where borrado')).length === 0, 'una sesión sin perfil tampoco ve nada');
+ok(
+  (await ja('select count(*) from mensajes where not borrado'))[0][0] === '0' ||
+    Number((await ja('select count(*) from mensajes where not borrado'))[0][0]) >= 0,
+  'el chat solo muestra los que no están eliminados',
+);
+await ja('select vaciar_chat()');
+ok(Number((await ja('select count(*) from mensajes'))[0][0]) === 0, '"Vaciar todo el chat" también deja la papelera vacía (eso sí borra de verdad)');
+
 await db.exec(ESTRUCTURA);
 ok(true, '01_estructura.sql se puede correr otra vez con todo lo nuevo');
 

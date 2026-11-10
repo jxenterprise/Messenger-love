@@ -39,6 +39,16 @@ const navChromium = await abrirNavegador(['--use-fake-ui-for-media-stream', '--u
 
 /** Revisa desbordes a los lados y que los elementos queden fuera del notch y de la barra de inicio. */
 async function revisar(p, c, pantalla, { arriba = [], abajo = [], visibles = [] } = {}) {
+  // Que terminen las animaciones (hojas que suben, paneles…): si se mide a
+  // media animación, un elemento parece estar más abajo de donde queda.
+  // Las animaciones sin fin (lluvia de corazones, destellos) no cuentan.
+  await p
+    .waitForFunction(
+      () => document.getAnimations().every((a) => a.playState !== 'running' || a.effect?.getTiming?.().iterations === Infinity),
+      null,
+      { timeout: 4000 },
+    )
+    .catch(() => {});
   const r = await p.evaluate(
     ({ arriba, abajo, visibles, notch, barraInicio }) => {
       const ancho = document.documentElement.clientWidth;

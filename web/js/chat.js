@@ -1667,13 +1667,13 @@ async function borrarMensaje(cid) {
   if (!m?.id) return;
   const si = await confirmar({
     titulo: '¿Eliminar para los dos?',
-    texto: 'El mensaje también desaparecerá del celular de tu pareja.',
+    texto: 'Desaparece del chat de los dos, pero queda guardado en la Papelera, que ustedes dos pueden abrir desde el menú.',
     aceptar: 'Eliminar',
     peligro: true,
   });
   if (!si) return;
   const original = { ...m };
-  const borrado = { ...m, borrado: true, contenido: null, media_path: null, media_meta: null, reacciones: {} };
+  const borrado = { ...m, borrado: true, borrado_en: new Date().toISOString() };
   estado.mensajes.set(cid, borrado);
   actualizarFila(borrado, original);
   try {
@@ -1841,6 +1841,8 @@ export function abrirMenuCabecera() {
     ['borrar', 'basura', 'Borrar mensajes'],
     ['ajustes', 'ajustes', 'Ajustes'],
   ];
+  // La papelera es una página aparte; en la vista previa no hay otras páginas
+  if (!ctx.esVistaPrevia) opciones.splice(2, 0, ['papelera', 'historial', 'Papelera']);
   if (ctx.tienePin()) opciones.push(['bloquear', 'candado', 'Bloquear ahora']);
   if (ctx.puedeInstalar()) opciones.push(['instalar', 'celular', 'Instalar la app']);
   const { capa, cerrar } = hoja(
@@ -1856,12 +1858,20 @@ export function abrirMenuCabecera() {
     const accion = b.dataset.accion;
     luego(() => {
       if (accion === 'buscar') abrirBusqueda();
+      else if (accion === 'papelera') irAPapelera();
       else if (accion === 'borrar') abrirBorrarMensajes();
       else if (accion === 'ajustes') ctx.abrirAjustes();
       else if (accion === 'bloquear') ctx.bloquearAhora();
       else if (accion === 'instalar') ctx.instalar();
     });
   });
+}
+
+/** Abre la Papelera sin perder nada: guarda el borrador y corta la grabación. */
+export function irAPapelera() {
+  if (estado.grabadora) cancelarGrabacion();
+  if (ctx?.yo && el.entrada) local.guardar(`borrador:${ctx.yo}`, el.entrada.value);
+  location.assign('/papelera/');
 }
 
 /* ==========================================================================
