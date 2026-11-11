@@ -138,6 +138,8 @@ export class BackendDemo {
       // mensaje" y en la papelera se ven completos (los dos pueden verlos).
       [E, 20 * hora, { contenido: 'Ay no, eso no era para ti 🙈 jajaja', borrado: true }],
       [J, 11 * hora, { contenido: 'Mejor te lo digo en persona 😅', borrado: true }],
+      // Uno eliminado ANTES de que existiera la papelera: sin texto ni fecha de borrado
+      [J, 30 * hora, { borrado: true, deAntes: true }],
     ];
 
     const porClave = {};
@@ -155,7 +157,7 @@ export class BackendDemo {
         reacciones: campos.reacciones || {},
         editado_en: campos.editado ? hace(haceMs - 30000) : null,
         borrado: !!campos.borrado,
-        borrado_en: campos.borrado ? hace(haceMs - 90000) : null,
+        borrado_en: campos.borrado && !campos.deAntes ? hace(haceMs - 90000) : null,
         entregado_en: hace(haceMs - 5000),
         leido_en: hace(haceMs - 20000),
         creado_en: creado,
@@ -296,10 +298,10 @@ export class BackendDemo {
     this._actualizar(id, { borrado: true, borrado_en: ahoraIso() });
   }
 
-  /** La papelera: todo lo que cualquiera de los dos eliminó del chat. */
+  /** La papelera: lo eliminado desde que existe (lo de antes no tiene fecha ni texto). */
   async cargarBorrados() {
     return this.mensajes
-      .filter((m) => m.borrado)
+      .filter((m) => m.borrado && m.borrado_en)
       .sort((a, b) => (a.borrado_en < b.borrado_en ? 1 : -1))
       .map((m) => ({ ...m }));
   }

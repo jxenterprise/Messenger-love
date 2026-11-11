@@ -6,7 +6,7 @@ Todo funciona con planes **gratis**: Supabase (la base de datos y el tiempo real
 
 > Tiempo total la primera vez: unos 40 minutos, con calma. Haz los pasos en orden y no te saltes ninguno.
 
-> 📍 **Estado actual (martes 10 de noviembre de 2026, 7:55 a. m., hora de Colombia) · versión v1.9:** la app está **conectada a Supabase** (proyecto `messenger-eyj`, São Paulo), publicada en Cloudflare y **funcionando entre los dos**. Para entrar: **"Soy Jampier" o "Soy Estrellita" + el PIN**. Los ajustes y los avisos **no se reinician nunca**, hay cámara, se puede **vaciar el chat solo para ti o para los dos**, al compartir el enlace sale su foto, y desde la v1.9 hay una **[Papelera](#la-papelera-los-mensajes-eliminados)**: lo que eliminen del chat queda guardado ahí y **los dos** pueden verlo. ⚠️ Para que la Papelera funcione hay que **volver a ejecutar `supabase/01_estructura.sql`** en el SQL Editor de Supabase (es seguro repetirlo). Lo nuevo de cada versión está en [Novedades](#novedades).
+> 📍 **Estado actual (miércoles 11 de noviembre de 2026, 3:35 p. m., hora de Colombia) · versión v1.10:** la app está **conectada a Supabase** (proyecto `messenger-eyj`, São Paulo), publicada en Cloudflare y **funcionando entre los dos**. Para entrar: **"Soy Jampier" o "Soy Estrellita" + el PIN**. Los ajustes y los avisos **no se reinician nunca**, hay cámara, se puede **vaciar el chat solo para ti o para los dos**, al compartir el enlace sale su foto, y hay una **[Papelera](#la-papelera-los-mensajes-eliminados)**: lo que eliminen del chat desde el 10 de noviembre queda guardado ahí y **los dos** pueden verlo. El SQL de la v1.9 ya está ejecutado en Supabase. Lo nuevo de cada versión está en [Novedades](#novedades).
 
 ---
 
@@ -250,7 +250,8 @@ Cuando pegan la dirección `.pages.dev` en WhatsApp, Telegram, Facebook, Messeng
 Cuando alguno elimina un mensaje con **Eliminar para los dos**, desaparece del chat… pero no se destruye: queda guardado en la **Papelera**, una página aparte en la misma dirección, [`/papelera`](https://messenger-estrellita-jampier-18.pages.dev/papelera).
 
 - **Se abre** desde el menú ⋮ del chat → **Papelera**, o desde **Ajustes → Mensajes → Papelera**. También escribiendo la dirección.
-- **Muestra**, de lo más reciente a lo más viejo: quién escribió el mensaje, qué día y a qué hora lo envió, **qué día y a qué hora lo eliminó**, y **qué decía** (con la foto o la nota de voz, si tenía). Se puede filtrar por persona.
+- **Muestra**, de lo más reciente a lo más viejo: quién escribió el mensaje, qué día y a qué hora lo envió, **qué día y a qué hora lo eliminó**, y **qué decía**. Sirve con todo lo que manda el chat: **texto, fotos, notas de voz y "Te extraño"**. (Videos el chat todavía no manda, así que no hay.) Se puede filtrar por persona.
+- **Solo lo eliminado desde el 10 de noviembre de 2026** (v1.9). Antes, "eliminar para los dos" destruía el texto en el momento, así que de esos mensajes no queda nada que mostrar y la Papelera no los incluye (en el chat siguen saliendo como "Se eliminó este mensaje"). Supabase gratis no guarda copias de seguridad, así que tampoco se pueden recuperar de otra forma.
 - **Es de los dos.** Los dos entran igual y ven exactamente lo mismo: no es una página de uno solo para mirar lo del otro a escondidas. Por eso el chat lo avisa al eliminar ("queda guardado en la Papelera") y lo dice también en Ajustes. Así nadie borra algo creyendo que desapareció cuando no es cierto.
 - **Protegida igual que el chat:** necesita la sesión de una de las 2 cuentas (la base de datos no se la muestra a nadie más) y, si el dispositivo tiene PIN, lo pide antes de abrir.
 - **Para que no quede nada** está **Vaciar todo el chat** (menú ⋮ → *Borrar mensajes*): eso sí borra de verdad los mensajes, las fotos y las notas de voz, y deja la Papelera vacía.
@@ -329,7 +330,9 @@ Cloudflare Pages: gratis, sin límite de visitas. Para ver el consumo: Supabase 
 
 **La Papelera dice "Entra primero al chat"** → esa página necesita tu sesión. Abre el chat, entra con tu nombre y el PIN, y vuelve a `/papelera`.
 
-**En la Papelera no aparece nada de lo que eliminé** → falta el SQL de la v1.9: ejecuta otra vez `supabase/01_estructura.sql` en el SQL Editor (es seguro repetirlo). Lo que se eliminó **antes** de ese cambio no se puede recuperar: en esa versión el texto sí se destruía.
+**En la Papelera no aparece algo que eliminé** → la Papelera guarda lo eliminado **desde el 10 de noviembre de 2026** (v1.9); lo de antes se destruía al eliminar y no se puede recuperar. Si lo eliminaste después y aun así no sale, revisa que el SQL de la v1.9 esté ejecutado (vuelve a correr `supabase/01_estructura.sql`: es seguro repetirlo).
+
+**En la Papelera una foto dice "ya no está guardada"** → el archivo ya no existe en el depósito (por ejemplo, si se eliminó el mensaje con una versión vieja de la app antes de ejecutar el SQL de la v1.9). El resto de la Papelera funciona igual.
 
 **Al compartir el enlace no sale la foto** → esa red guarda la vista previa vieja. Refréscala como dice [Compartir el enlace](#compartir-el-enlace-la-vista-previa-con-su-foto) (Telegram: @WebpageBot; Facebook: el depurador de Meta; WhatsApp: agrega `?v=2`). Si cambiaste de dominio, actualiza `og:url`, `og:image` y `twitter:image` en `web/index.html` (y `npm run prueba:redes` te avisa si algo no cuadra).
 
@@ -341,6 +344,16 @@ Cloudflare Pages: gratis, sin límite de visitas. Para ver el consumo: Supabase 
 
 Numeración: **v1.0, v1.1, v1.2 … hasta v1.50; después v2.0**. Las primeras versiones tenían otro número; aquí van con los dos.
 
+**v1.10 · miércoles 11 de noviembre de 2026, 3:35 p. m. — La Papelera, solo con lo nuevo**
+- La Papelera ya no muestra lo eliminado **antes** de que existiera (antes del 10 de noviembre): de esos mensajes no quedaba nada (el texto y la foto se destruían al eliminar), así que salían tarjetas vacías con "Eliminado hace tiempo". Ahora solo aparece lo eliminado desde la v1.9, con todo lo que decía.
+- Si a un mensaje de la Papelera le falta la foto o la nota de voz, ahora dice "📷 La foto ya no está guardada" en vez de quedar un hueco vacío.
+- Las fechas se leen más natural: "Eliminado ayer", "Eliminado el lunes", "Enviado el 7 de noviembre a las…".
+- Arreglado: en la Papelera, si una parte de la página se volvía a preparar (por ejemplo al reintentar), un mismo intento de PIN podía contarse dos veces.
+- La hoja **Borrar mensajes** y la confirmación de **Vaciar para los dos** ahora también lo dicen claro: lo que se elimina de a uno queda en la Papelera (que ven los dos), y vaciar el chat borra todo, Papelera incluida.
+- Confirmado: sirve con texto, fotos, notas de voz y "Te extraño". Videos el chat todavía no manda.
+- No hay SQL nuevo.
+- Pruebas: 567 en total, todas bien. Revisado también todo lo publicado: los 34 archivos de la app responden bien, la página 404 funciona y las cabeceras de seguridad están.
+
 **v1.9 · martes 10 de noviembre de 2026, 7:55 a. m. — La Papelera**
 - **Página nueva `/papelera`** (carpeta `web/papelera/`), con el mismo diseño del chat, el mismo tema claro/oscuro y el fondo de corazones. Se abre desde el menú ⋮ → **Papelera** o desde **Ajustes → Mensajes**.
 - **"Eliminar para los dos" ya no destruye el mensaje:** lo saca del chat y lo guarda en la Papelera con la fecha y la hora en que se eliminó, el texto completo y la foto o la nota de voz. Para borrar de verdad está **Vaciar todo el chat**.
@@ -348,7 +361,7 @@ Numeración: **v1.0, v1.1, v1.2 … hasta v1.50; después v2.0**. Las primeras v
 - Protegida como el chat: necesita la sesión de una de las 2 cuentas y pide el PIN del dispositivo. Sin sesión no muestra ni un mensaje.
 - Se puede filtrar por persona, y los mensajes van agrupados por el día en que se eliminaron.
 - **Hay que volver a ejecutar `supabase/01_estructura.sql`** en Supabase (agrega la columna `borrado_en` y cambia `borrar_mensaje`). Es seguro repetirlo.
-- Pruebas nuevas: `npm run prueba:papelera` (39, en el navegador) y la sección 19 de la base de datos.
+- Pruebas nuevas: `npm run prueba:papelera` (39 en la v1.9, 42 desde la v1.10, en el navegador) y la sección 19 de la base de datos.
 - Pruebas: más de 560 en total, todas bien (incluidos sus dos celulares).
 
 **v1.8 · domingo 8 de noviembre de 2026, 4:00 p. m. — La carpeta se llama "Juntos"**

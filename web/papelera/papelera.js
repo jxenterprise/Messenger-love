@@ -39,6 +39,12 @@ function nombreDe(id) {
   return estado.perfiles.get(id)?.nombre || 'Tu amor';
 }
 
+/** "hoy", "ayer", "el lunes", "el 7 de noviembre" (para "Enviado …" y "Eliminado …"). */
+function cuandoDia(iso) {
+  const etiqueta = etiquetaDia(iso);
+  return etiqueta === 'Hoy' || etiqueta === 'Ayer' ? etiqueta.toLowerCase() : `el ${etiqueta.toLowerCase()}`;
+}
+
 /* ==========================================================================
    Arranque
    ========================================================================== */
@@ -87,13 +93,15 @@ function pedirPin() {
   const espera = esperaRestante(estado.yo);
   if (espera > 0) error.textContent = `Espera ${Math.ceil(espera / 60)} minuto(s) antes de volver a intentar.`;
 
-  campo.addEventListener('input', () => {
+  // onX (y no addEventListener): si esto corriera dos veces, cada intento
+  // contaría doble y bloquearía el PIN antes de tiempo.
+  campo.oninput = () => {
     campo.value = campo.value.replace(/\D/g, '').slice(0, 4);
     error.textContent = '';
     if (campo.value.length === 4) $('#forma-pin').requestSubmit();
-  });
+  };
 
-  $('#forma-pin').addEventListener('submit', async (e) => {
+  $('#forma-pin').onsubmit = async (e) => {
     e.preventDefault();
     const pin = campo.value;
     if (pin.length !== 4) {
@@ -116,7 +124,7 @@ function pedirPin() {
     else if (r.bloquear) error.textContent = 'Demasiados intentos. Vuelve a entrar desde el chat.';
     else error.textContent = 'Ese PIN no es.';
     campo.focus();
-  });
+  };
 }
 
 /* ==========================================================================
@@ -127,7 +135,7 @@ async function cargar() {
   try {
     const [perfiles, borrados] = await Promise.all([estado.backend.cargarPerfiles(), estado.backend.cargarBorrados()]);
     estado.perfiles = new Map(perfiles.map((p) => [p.id, p]));
-    estado.borrados = borrados;
+    estado.borrados = borrados.filter((m) => m.borrado_en); // lo eliminado antes de la papelera no tiene nada que mostrar
   } catch (error) {
     return fallo(error);
   }
@@ -153,18 +161,20 @@ function pintarFiltros() {
   const caja = $('#filtros');
   if (opciones.length < 3) {
     caja.replaceChildren(); // con uno solo no vale la pena el filtro
+    estado.filtro = 'todos'; // sin botones no debe quedar pegado un filtro viejo
     return;
   }
+  if (!opciones.some(([valor]) => valor === estado.filtro)) estado.filtro = 'todos';
   caja.innerHTML = opciones
     .map(([valor, texto]) => `<button type="button" data-valor="${escaparHtml(valor)}" aria-pressed="${valor === estado.filtro}">${escaparHtml(texto)}</button>`)
     .join('');
-  caja.addEventListener('click', (e) => {
+  caja.onclick = (e) => {
     const boton = e.target.closest('[data-valor]');
     if (!boton) return;
     estado.filtro = boton.dataset.valor;
     caja.querySelectorAll('[data-valor]').forEach((b) => b.setAttribute('aria-pressed', String(b === boton)));
     pintarLista();
-  });
+  };
 }
 
 function filtrados() {
@@ -187,11 +197,10 @@ function pintarLista() {
   let html = '';
   let diaAnterior = null;
   for (const m of mensajes) {
-    const dia = m.borrado_en ? claveDia(m.borrado_en) : 'sin-fecha';
+    const dia = claveDia(m.borrado_en);
     if (dia !== diaAnterior) {
       diaAnterior = dia;
-      const etiqueta = m.borrado_en ? `Eliminado ${etiquetaDia(m.borrado_en).toLowerCase()}` : 'Eliminado hace tiempo';
-      html += `<h2 class="papelera-dia">${escaparHtml(etiqueta)}</h2>`;
+      html += `<h2 class="papelera-dia">${escaparHtml(`Eliminado ${cuandoDia(m.borrado_en)}`)}</h2>`;
     }
     html += tarjeta(m);
   }
@@ -206,8 +215,8 @@ function tarjeta(m) {
   const quien = m.remitente === estado.yo ? 'Tú' : nombreDe(m.remitente);
   const inicial = (perfil?.nombre || '♥').trim().charAt(0).toUpperCase() || '♥';
 
-  const enviado = m.creado_en ? `Enviado ${etiquetaDia(m.creado_en).toLowerCase()} a las ${hora(m.creado_en)}` : '';
-  const eliminado = m.borrado_en ? `Eliminado a las ${hora(m.borrado_en)}` : 'Eliminado';
+  const enviado = m.creado_en ? `Enviado ${cuandoDia(m.creado_en)} a las ${hora(m.creado_en)}` : '';
+  const eliminado = `Eliminado a las ${hora(m.borrado_en)}`;
 
   return `
     <article class="eliminado">
@@ -254,21 +263,30 @@ function pintarAvatares(raiz) {
   }
 }
 
+/** Si la foto o la nota de voz ya no se puede cargar, queda un aviso (no un hueco). */
+function sinArchivo(nodo) {
+  const aviso = document.createElement('p');
+  aviso.className = 'texto sin-texto';
+  aviso.textContent = nodo.tagName === 'AUDIO' ? '🎤 La nota de voz ya no está guardada.' : '📷 La foto ya no está guardada.';
+  nodo.replaceWith(aviso);
+}
+
 /** Fotos y notas de voz del mensaje eliminado (direcciones firmadas de 6 h). */
 function pintarMedia(raiz) {
   for (const nodo of raiz.querySelectorAll('[data-media]')) {
     const ruta = nodo.dataset.media;
     if (!ruta) {
-      nodo.remove();
+      sinArchivo(nodo);
       continue;
     }
+    nodo.onerror = () => sinArchivo(nodo);
     estado.backend
       .urlFirmada(ruta)
       .then((url) => {
         if (url) nodo.src = url;
-        else nodo.remove();
+        else sinArchivo(nodo);
       })
-      .catch(() => nodo.remove());
+      .catch(() => sinArchivo(nodo));
   }
 }
 

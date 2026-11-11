@@ -1883,9 +1883,9 @@ function abrirBorrarMensajes() {
   const { capa, cerrar } = hoja(
     `<h2>Borrar mensajes</h2>
     <ol class="pasos">
-      <li><span><strong>Uno solo:</strong> ${gesto} un mensaje tuyo y toca <strong>Eliminar para los dos</strong>.</span></li>
+      <li><span><strong>Uno solo:</strong> ${gesto} un mensaje tuyo y toca <strong>Eliminar para los dos</strong>. Sale del chat y queda en la <strong>Papelera</strong>, que ven los dos.</span></li>
       <li><span><strong>Vaciar solo para mí:</strong> el chat queda vacío en tu celular. ${escaparHtml(pareja)} lo sigue viendo y todo queda guardado.</span></li>
-      <li><span><strong>Vaciar para los dos:</strong> se borran todos los mensajes, fotos y notas de voz de los dos celulares. No se puede deshacer.</span></li>
+      <li><span><strong>Vaciar para los dos:</strong> se borran todos los mensajes, fotos y notas de voz de los dos celulares, y también la Papelera. No se puede deshacer.</span></li>
     </ol>
     <div class="botones-borrar">
       <button type="button" class="boton secundario ancho" data-accion="vaciar-mio">${icono('basura')}Vaciar solo para mí</button>
@@ -1966,7 +1966,7 @@ async function vaciarChat() {
   const pareja = nombreDe(ctx.pareja()?.id);
   const si = await confirmar({
     titulo: '¿Vaciar todo el chat?',
-    texto: `Se borrarán todos los mensajes, fotos y notas de voz, también del celular de ${pareja}.`,
+    texto: `Se borrarán todos los mensajes, fotos y notas de voz, también del celular de ${pareja} y de la Papelera.`,
     aceptar: 'Sí, vaciar',
     peligro: true,
   });

@@ -38,7 +38,7 @@ export const CONFIG = {
   // Versión visible debajo de "Nuestro rincón privado" (v1.4).
   // Numeración: 1.0, 1.1, 1.2 … hasta 1.50; después pasa a 2.0.
   // ✏️ Súbela en cada entrega (y también VERSION en web/sw.js).
-  VERSION: '1.9',
+  VERSION: '1.10',
 };
 
 /* --------------------------------------------------------------------------

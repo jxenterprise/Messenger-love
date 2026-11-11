@@ -285,10 +285,20 @@ export class BackendSupabase {
     revisar(await this.sb.rpc('borrar_mensaje', { p_mensaje: id }));
   }
 
-  /** La papelera: todo lo que cualquiera de los dos eliminó del chat. */
+  /**
+   * La papelera: lo que cualquiera de los dos eliminó desde que existe (v1.9).
+   * Lo eliminado ANTES no tiene fecha de borrado y su texto se destruyó en ese
+   * momento: ya no hay nada que mostrar, así que no se trae.
+   */
   async cargarBorrados({ limite = 500 } = {}) {
     return revisar(
-      await this.sb.from('mensajes').select('*').eq('borrado', true).order('borrado_en', { ascending: false }).limit(limite),
+      await this.sb
+        .from('mensajes')
+        .select('*')
+        .eq('borrado', true)
+        .not('borrado_en', 'is', null)
+        .order('borrado_en', { ascending: false })
+        .limit(limite),
     );
   }
 

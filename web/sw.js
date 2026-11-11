@@ -7,7 +7,7 @@
    ✏️ Cada vez que cambies archivos de la app, sube el número de VERSION:
       así todos los celulares reciben la versión nueva.
    ========================================================================== */
-const VERSION = 'eyj-v1.9';
+const VERSION = 'eyj-v1.10';
 const CACHE_APP = `${VERSION}-app`;
 const CACHE_MEDIA = 'eyj-media-v1';
 const MAX_FOTOS = 400;

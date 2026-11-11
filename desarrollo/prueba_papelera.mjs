@@ -50,7 +50,7 @@ try {
   let errores = vigilarConsola(p);
   await entrar(p, 'jampier');
 
-  ok((await p.$$('#mensajes .fila.borrado, #mensajes .borrado')).length >= 1, 'en el chat los eliminados salen como "Se eliminó este mensaje"');
+  ok((await p.$$('#mensajes .fila.borrado, #mensajes .burbuja.borrado')).length >= 3, 'en el chat los eliminados salen como "Se eliminó este mensaje" (también el de antes de la papelera)');
   const enElChat = await p.textContent('#mensajes');
   ok(!enElChat.includes('eso no era para ti'), 'el chat NO muestra lo que decía un mensaje eliminado');
 
@@ -63,6 +63,10 @@ try {
   ok((await p.textContent('#resumen')).includes('2'), 'el resumen dice cuántos hay');
   ok((await p.textContent('#lista')).includes('Eliminado'), 'cada uno dice cuándo se eliminó');
   ok((await p.$$('.eliminado')).length === 2, 'hay una tarjeta por mensaje eliminado');
+  ok(!texto.includes('hace tiempo'), 'lo eliminado ANTES de la papelera (sin fecha ni texto) ya no sale');
+  ok(/Eliminado (hoy|ayer|el )/.test(texto), 'el día se lee natural: "Eliminado ayer", "Eliminado el lunes"…');
+  const vacias = await p.$$eval('.eliminado .contenido', (cs) => cs.filter((c) => !c.querySelector('.texto, img, audio')).length);
+  ok(vacias === 0, 'ninguna tarjeta queda vacía');
   await p.screenshot({ path: `${capturas}papelera-01-lista.png`, fullPage: true });
 
   // Filtro
