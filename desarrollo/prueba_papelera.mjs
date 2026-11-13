@@ -60,9 +60,9 @@ try {
   const texto = await p.textContent('#lista');
   ok(texto.includes('eso no era para ti'), 'la papelera SÍ muestra lo que decía el mensaje que eliminó Estrellita');
   ok(texto.includes('Mejor te lo digo en persona'), 'y también el que eliminó Jampier');
-  ok((await p.textContent('#resumen')).includes('2'), 'el resumen dice cuántos hay');
+  ok((await p.textContent('#resumen')).includes('3'), 'el resumen dice cuántos hay');
   ok((await p.textContent('#lista')).includes('Eliminado'), 'cada uno dice cuándo se eliminó');
-  ok((await p.$$('.eliminado')).length === 2, 'hay una tarjeta por mensaje eliminado');
+  ok((await p.$$('.eliminado')).length === 3, 'hay una tarjeta por mensaje eliminado (textos y foto)');
   ok(!texto.includes('hace tiempo'), 'lo eliminado ANTES de la papelera (sin fecha ni texto) ya no sale');
   ok(/Eliminado (hoy|ayer|el )/.test(texto), 'el día se lee natural: "Eliminado ayer", "Eliminado el lunes"…');
   const vacias = await p.$$eval('.eliminado .contenido', (cs) => cs.filter((c) => !c.querySelector('.texto, img, audio')).length);
@@ -78,7 +78,40 @@ try {
   ok((await p.textContent('#lista')).includes('Mejor te lo digo en persona'), 'y es el correcto');
   await p.click('#filtros [data-valor="todos"]');
   await p.waitForTimeout(300);
-  ok((await p.$$('.eliminado')).length === 2, 'vuelve a mostrarlos todos');
+  ok((await p.$$('.eliminado')).length === 3, 'vuelve a mostrarlos todos');
+
+  // Filtro "Qué ver": textos / fotos
+  const tipos = await p.$$eval('#filtros-tipo [data-tipo]', (bs) => bs.map((b) => b.dataset.tipo));
+  ok(tipos.join(',') === 'todo,textos,fotos', 'hay filtro de qué ver (Todo, Textos, Fotos; Audios solo si hay)');
+  await p.click('#filtros-tipo [data-tipo="fotos"]');
+  await p.waitForTimeout(300);
+  ok((await p.$$('.eliminado')).length === 1 && (await p.$$('.eliminado .foto-boton')).length === 1, 'el filtro "Fotos" deja solo la foto');
+  await p.click('#filtros [data-valor="mios"]');
+  await p.waitForTimeout(300);
+  ok((await p.textContent('#lista')).includes('con ese filtro'), 'los dos filtros juntos (Fotos + Míos): avisa que no hay nada');
+  await p.click('#filtros [data-valor="todos"]');
+  await p.click('#filtros-tipo [data-tipo="textos"]');
+  await p.waitForTimeout(300);
+  ok((await p.$$('.eliminado')).length === 2 && (await p.$$('.eliminado .foto-boton')).length === 0, 'el filtro "Textos" deja solo los textos');
+  await p.click('#filtros-tipo [data-tipo="todo"]');
+  await p.waitForTimeout(300);
+
+  // Ver la foto en grande y descargarla
+  await p.waitForFunction(() => document.querySelector('.foto-boton img')?.complete && document.querySelector('.foto-boton img').naturalWidth > 0);
+  await p.click('.foto-boton');
+  await p.waitForSelector('.visor', { timeout: 5000 });
+  const visor = await p.evaluate(() => {
+    const v = document.querySelector('.visor');
+    const r = v.getBoundingClientRect();
+    return { ancho: r.width, alto: r.height, img: !!v.querySelector('.lienzo img')?.src, guardar: !!v.querySelector('[data-guardar]') };
+  });
+  ok(visor.ancho >= p.viewportSize().width - 1 && visor.alto >= p.viewportSize().height - 1, 'tocar la foto la abre en pantalla completa');
+  ok(visor.img && visor.guardar, 'en grande, con el botón para descargarla');
+  await p.waitForTimeout(500); // que termine de aparecer
+  await p.screenshot({ path: `${capturas}papelera-01b-foto-en-grande.png` });
+  await p.keyboard.press('Escape');
+  await p.waitForSelector('.visor', { state: 'detached', timeout: 5000 });
+  ok(p.url().includes('/papelera'), 'al cerrar el visor sigue en la papelera');
 
   // Volver al chat
   await p.click('.papelera-cabecera a[href="/"]');
@@ -203,6 +236,16 @@ try {
   ok(await p.isVisible('#estado-lista'), 'computador: la papelera se ve');
   const seSale = await p.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
   ok(!seSale, 'computador: nada se sale a los lados');
+  await p.waitForFunction(() => document.querySelector('.foto-boton img')?.naturalWidth > 0);
+  await p.click('.foto-boton');
+  await p.waitForSelector('.visor');
+  const [descarga] = await Promise.all([p.waitForEvent('download', { timeout: 8000 }).catch(() => null), p.click('.visor [data-guardar]')]);
+  ok(
+    descarga && /^Foto_eliminada_Messenger_Estrellita_y_Jampier_.*\.webp$/.test(descarga.suggestedFilename()),
+    `computador: con clic la foto se abre en grande y el botón la descarga (${descarga?.suggestedFilename() || 'no descargó'})`,
+  );
+  await p.screenshot({ path: `${capturas}papelera-06b-computador-foto.png` });
+  await p.keyboard.press('Escape');
   await p.screenshot({ path: `${capturas}papelera-06-computador-oscuro.png`, fullPage: true });
   ok(errores.length === 0, `sin errores en la consola ${errores.length ? JSON.stringify(errores) : ''}`);
   await contexto.close();

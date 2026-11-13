@@ -1,4 +1,4 @@
-# Messenger Estrellita y Jampier ❤️
+﻿# Messenger Estrellita y Jampier ❤️
 
 Un chat privado solo para ustedes dos: mensajes al instante, fotos, notas de voz, "Te extraño" y notificaciones. Cada uno entra con **su usuario** (`jampier` o `estrellita`) y **el mismo PIN de 4 números**. Es una web (HTML, CSS y JS) que se instala en el celular como una app, en Android, iPhone y computador.
 
@@ -6,7 +6,7 @@ Todo funciona con planes **gratis**: Supabase (la base de datos y el tiempo real
 
 > Tiempo total la primera vez: unos 40 minutos, con calma. Haz los pasos en orden y no te saltes ninguno.
 
-> 📍 **Estado actual (miércoles 11 de noviembre de 2026, 3:35 p. m., hora de Colombia) · versión v1.10:** la app está **conectada a Supabase** (proyecto `messenger-eyj`, São Paulo), publicada en Cloudflare y **funcionando entre los dos**. Para entrar: **"Soy Jampier" o "Soy Estrellita" + el PIN**. Los ajustes y los avisos **no se reinician nunca**, hay cámara, se puede **vaciar el chat solo para ti o para los dos**, al compartir el enlace sale su foto, y hay una **[Papelera](#la-papelera-los-mensajes-eliminados)**: lo que eliminen del chat desde el 10 de noviembre queda guardado ahí y **los dos** pueden verlo. El SQL de la v1.9 ya está ejecutado en Supabase. Lo nuevo de cada versión está en [Novedades](#novedades).
+> 📍 **Estado actual (viernes 13 de noviembre de 2026, 10:50 p. m., hora de Colombia) · versión v1.11:** la app está **conectada a Supabase** (proyecto `messenger-eyj`, São Paulo), publicada en Cloudflare y **funcionando entre los dos**. Para entrar: **"Soy Jampier" o "Soy Estrellita" + el PIN**. Los ajustes y los avisos **no se reinician nunca**, hay cámara, se puede **vaciar el chat solo para ti o para los dos**, al compartir el enlace sale su foto, y hay una **[Papelera](#la-papelera-los-mensajes-eliminados)**: lo que eliminen del chat desde el 10 de noviembre queda guardado ahí y **los dos** pueden verlo; las fotos se abren en grande y se pueden descargar. El SQL de la v1.9 ya está ejecutado en Supabase. Lo nuevo de cada versión está en [Novedades](#novedades).
 
 ---
 
@@ -251,6 +251,8 @@ Cuando alguno elimina un mensaje con **Eliminar para los dos**, desaparece del c
 
 - **Se abre** desde el menú ⋮ del chat → **Papelera**, o desde **Ajustes → Mensajes → Papelera**. También escribiendo la dirección.
 - **Muestra**, de lo más reciente a lo más viejo: quién escribió el mensaje, qué día y a qué hora lo envió, **qué día y a qué hora lo eliminó**, y **qué decía**. Sirve con todo lo que manda el chat: **texto, fotos, notas de voz y "Te extraño"**. (Videos el chat todavía no manda, así que no hay.) Se puede filtrar por persona.
+- **Fotos en grande:** toca una foto (o haz clic en el computador) y se abre en pantalla completa. Arriba a la derecha está el botón **Descargar**: en el celular abre el menú del sistema ("Guardar imagen" en iPhone, guardar en la galería en Android) y en el computador la descarga directo, con un nombre como `Foto_eliminada_Messenger_Estrellita_y_Jampier_20261113_094145.webp`. Se cierra con la ✕, con el botón "atrás" del celular o con Esc.
+- **Filtros:** **Qué ver** (Todo / Textos / Fotos / Audios; solo salen los tipos que haya) y **De quién** (Todos / Míos / los de tu pareja). Se pueden combinar, por ejemplo "Fotos" + "Estrellita".
 - **Solo lo eliminado desde el 10 de noviembre de 2026** (v1.9). Antes, "eliminar para los dos" destruía el texto en el momento, así que de esos mensajes no queda nada que mostrar y la Papelera no los incluye (en el chat siguen saliendo como "Se eliminó este mensaje"). Supabase gratis no guarda copias de seguridad, así que tampoco se pueden recuperar de otra forma.
 - **Es de los dos.** Los dos entran igual y ven exactamente lo mismo: no es una página de uno solo para mirar lo del otro a escondidas. Por eso el chat lo avisa al eliminar ("queda guardado en la Papelera") y lo dice también en Ajustes. Así nadie borra algo creyendo que desapareció cuando no es cierto.
 - **Protegida igual que el chat:** necesita la sesión de una de las 2 cuentas (la base de datos no se la muestra a nadie más) y, si el dispositivo tiene PIN, lo pide antes de abrir.
@@ -343,6 +345,15 @@ Cloudflare Pages: gratis, sin límite de visitas. Para ver el consumo: Supabase 
 ## Novedades
 
 Numeración: **v1.0, v1.1, v1.2 … hasta v1.50; después v2.0**. Las primeras versiones tenían otro número; aquí van con los dos.
+
+**v1.11 · viernes 13 de noviembre de 2026, 10:50 p. m. — Fotos en grande y filtros en la Papelera**
+- **Las fotos de la Papelera se abren en pantalla completa** al tocarlas (celular) o con un clic (computador), con el mismo visor del chat: se puede acercar tocando la foto y cerrar con la ✕, el "atrás" del celular o Esc.
+- **Botón para descargar** la foto dentro del visor. En el celular abre el menú del sistema para guardarla en la galería; en el computador la descarga directo.
+- Arreglado también en el chat: en el **computador con Windows**, "Guardar foto" abría la ventana de compartir en vez de descargar. Ahora en el computador descarga directo y en el celular sigue usando el menú del sistema.
+- **Filtro "Qué ver"**: Todo, Textos (incluye los "Te extraño"), Fotos y Audios (solo aparecen los tipos que haya). Se combina con el filtro **De quién** (Todos / Míos / Estrellita o Jampier).
+- En la vista previa hay una foto eliminada de ejemplo para probarlo.
+- No hay SQL nuevo.
+- Pruebas: 576 en total, todas bien (`prueba:papelera` pasa de 42 a 50: filtros, foto en pantalla completa en el celular y descarga real en el computador).
 
 **v1.10 · miércoles 11 de noviembre de 2026, 3:35 p. m. — La Papelera, solo con lo nuevo**
 - La Papelera ya no muestra lo eliminado **antes** de que existiera (antes del 10 de noviembre): de esos mensajes no quedaba nada (el texto y la foto se destruían al eliminar), así que salían tarjetas vacías con "Eliminado hace tiempo". Ahora solo aparece lo eliminado desde la v1.9, con todo lo que decía.

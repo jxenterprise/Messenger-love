@@ -18,6 +18,7 @@ import { BackendDemo } from '../js/backend-demo.js';
 import { BackendSupabase } from '../js/backend-supabase.js';
 import { icono, pintarIconos } from '../js/iconos.js';
 import { esperaRestante, tienePin, verificarPin } from '../js/candado.js';
+import { abrirVisor } from '../js/interfaz.js';
 import { $, claveDia, duracionTexto, escaparHtml, esErrorDeRed, etiquetaDia, fechaCompleta, hora, textoConEnlaces } from '../js/utilidades.js';
 
 const estado = {
@@ -25,8 +26,18 @@ const estado = {
   yo: null,
   perfiles: new Map(),
   borrados: [],
-  filtro: 'todos',
+  filtro: 'todos', // de quién: 'todos' | 'mios' | id de la pareja
+  tipo: 'todo', // qué ver: 'todo' | 'textos' | 'fotos' | 'audios'
 };
+
+/** Qué tipo de mensaje es, para el filtro "Qué ver" ("Te extraño" cuenta como texto). */
+const TIPOS = [
+  ['todo', 'Todo', null],
+  ['textos', 'Textos', 'mensajeCorazon'],
+  ['fotos', 'Fotos', 'imagen'],
+  ['audios', 'Audios', 'microfono'],
+];
+const tipoDe = (m) => (m.tipo === 'imagen' ? 'fotos' : m.tipo === 'audio' ? 'audios' : 'textos');
 
 const pantallas = ['estado-cargando', 'estado-sin-sesion', 'estado-pin', 'estado-error', 'estado-vacio', 'estado-lista'];
 
@@ -144,13 +155,42 @@ async function cargar() {
   $('#resumen').textContent = total === 0 ? 'Nada eliminado' : total === 1 ? '1 mensaje eliminado' : `${total} mensajes eliminados`;
   if (!total) return mostrar('estado-vacio');
 
+  pintarFiltrosTipo();
   pintarFiltros();
   pintarLista();
   mostrar('estado-lista');
 }
 
 /* ==========================================================================
-   Filtros: todos / los míos / los de la pareja
+   Filtro "Qué ver": todo / textos / fotos / audios (solo los tipos que hay)
+   ========================================================================== */
+function pintarFiltrosTipo() {
+  const hay = new Set(estado.borrados.map(tipoDe));
+  const opciones = TIPOS.filter(([valor]) => valor === 'todo' || hay.has(valor));
+  const caja = $('#filtros-tipo');
+  if (opciones.length < 3) {
+    caja.replaceChildren(); // si todo es del mismo tipo, el filtro sobra
+    estado.tipo = 'todo';
+    return;
+  }
+  if (!opciones.some(([valor]) => valor === estado.tipo)) estado.tipo = 'todo';
+  caja.innerHTML = opciones
+    .map(
+      ([valor, texto, ic]) =>
+        `<button type="button" data-tipo="${valor}" aria-pressed="${valor === estado.tipo}">${ic ? icono(ic) : ''}${escaparHtml(texto)}</button>`,
+    )
+    .join('');
+  caja.onclick = (e) => {
+    const boton = e.target.closest('[data-tipo]');
+    if (!boton) return;
+    estado.tipo = boton.dataset.tipo;
+    caja.querySelectorAll('[data-tipo]').forEach((b) => b.setAttribute('aria-pressed', String(b === boton)));
+    pintarLista();
+  };
+}
+
+/* ==========================================================================
+   Filtro "De quién": todos / los míos / los de la pareja
    ========================================================================== */
 function pintarFiltros() {
   const parejaId = [...estado.perfiles.keys()].find((id) => id !== estado.yo);
@@ -178,9 +218,12 @@ function pintarFiltros() {
 }
 
 function filtrados() {
-  if (estado.filtro === 'todos') return estado.borrados;
-  if (estado.filtro === 'mios') return estado.borrados.filter((m) => m.remitente === estado.yo);
-  return estado.borrados.filter((m) => m.remitente === estado.filtro);
+  return estado.borrados.filter((m) => {
+    if (estado.tipo !== 'todo' && tipoDe(m) !== estado.tipo) return false;
+    if (estado.filtro === 'todos') return true;
+    if (estado.filtro === 'mios') return m.remitente === estado.yo;
+    return m.remitente === estado.filtro;
+  });
 }
 
 /* ==========================================================================
@@ -190,7 +233,7 @@ function pintarLista() {
   const lista = $('#lista');
   const mensajes = filtrados();
   if (!mensajes.length) {
-    lista.innerHTML = '<p class="papelera-nota">No hay mensajes eliminados de esa persona.</p>';
+    lista.innerHTML = '<p class="papelera-nota">No hay mensajes eliminados con ese filtro.</p>';
     return;
   }
 
@@ -219,7 +262,7 @@ function tarjeta(m) {
   const eliminado = `Eliminado a las ${hora(m.borrado_en)}`;
 
   return `
-    <article class="eliminado">
+    <article class="eliminado" data-cid="${escaparHtml(m.client_id)}">
       <div class="avatar" data-avatar="${escaparHtml(m.remitente)}">${escaparHtml(inicial)}</div>
       <div class="contenido">
         <div class="quien">
@@ -238,7 +281,7 @@ function cuerpo(m) {
   if (m.tipo === 'te_extrano') return '<p class="texto">💌 Te extraño</p>';
   if (m.tipo === 'imagen') {
     const pie = m.contenido ? `<p class="texto">${textoConEnlaces(m.contenido)}</p>` : '';
-    return `${pie}<img class="foto" data-media="${escaparHtml(m.media_path || '')}" alt="Foto eliminada" loading="lazy">`;
+    return `${pie}<button type="button" class="foto-boton" aria-label="Ver la foto en grande"><img class="foto" data-media="${escaparHtml(m.media_path || '')}" alt="Foto eliminada" loading="lazy"></button>`;
   }
   if (m.tipo === 'audio') {
     return `<p class="texto sin-texto">🎤 Nota de voz (${escaparHtml(duracionTexto(m.media_meta?.duracion))})</p>
@@ -268,7 +311,23 @@ function sinArchivo(nodo) {
   const aviso = document.createElement('p');
   aviso.className = 'texto sin-texto';
   aviso.textContent = nodo.tagName === 'AUDIO' ? '🎤 La nota de voz ya no está guardada.' : '📷 La foto ya no está guardada.';
-  nodo.replaceWith(aviso);
+  (nodo.closest('.foto-boton') || nodo).replaceWith(aviso);
+}
+
+/** Abre la foto en pantalla completa (el mismo visor del chat, con botón para descargarla). */
+function verFoto(boton) {
+  const img = boton.querySelector('img');
+  if (!img?.src) return; // todavía no cargó
+  const m = estado.borrados.find((x) => x.client_id === boton.closest('.eliminado')?.dataset.cid);
+  if (!m) return;
+  const ext = (m.media_path?.split('.').pop() || 'webp').toLowerCase();
+  const sello = (m.creado_en || '').slice(0, 19).replace(/[-:T]/g, '').replace(/^(\d{8})(\d{6})$/, '$1_$2');
+  abrirVisor({
+    url: img.src,
+    titulo: m.remitente === estado.yo ? 'Tú' : nombreDe(m.remitente),
+    subtitulo: `Eliminado ${cuandoDia(m.borrado_en)} a las ${hora(m.borrado_en)}`,
+    nombreArchivo: `Foto_eliminada_Messenger_Estrellita_y_Jampier_${sello || 'foto'}.${ext}`,
+  });
 }
 
 /** Fotos y notas de voz del mensaje eliminado (direcciones firmadas de 6 h). */
@@ -292,4 +351,9 @@ function pintarMedia(raiz) {
 
 /* ========================================================================== */
 $('#reintentar').addEventListener('click', () => (estado.yo ? cargar() : iniciar()));
+// Tocar una foto (en el celular o con clic en el computador) la abre en grande
+$('#lista').addEventListener('click', (e) => {
+  const boton = e.target.closest('.foto-boton');
+  if (boton) verFoto(boton);
+});
 iniciar();

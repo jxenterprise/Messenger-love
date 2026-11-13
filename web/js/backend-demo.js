@@ -138,6 +138,7 @@ export class BackendDemo {
       // mensaje" y en la papelera se ven completos (los dos pueden verlos).
       [E, 20 * hora, { contenido: 'Ay no, eso no era para ti 🙈 jajaja', borrado: true }],
       [J, 11 * hora, { contenido: 'Mejor te lo digo en persona 😅', borrado: true }],
+      [E, 13 * hora, { tipo: 'imagen', contenido: 'Esta salió borrosa 🙈', media_path: 'demo/atardecer.webp', media_meta: { ancho: 1200, alto: 900 }, borrado: true }],
       // Uno eliminado ANTES de que existiera la papelera: sin texto ni fecha de borrado
       [J, 30 * hora, { borrado: true, deAntes: true }],
     ];

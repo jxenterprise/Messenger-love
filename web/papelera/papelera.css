@@ -128,12 +128,57 @@
   margin-bottom: 10px;
 }
 
-/* ---------- Filtros ---------- */
+/* ---------- Filtros (qué ver y de quién) ---------- */
+#filtros-tipo,
+#filtros {
+  margin-bottom: 10px;
+}
 #filtros {
   margin-bottom: 14px;
 }
+#filtros-tipo:empty,
 #filtros:empty {
   display: none;
+}
+#filtros-tipo button {
+  padding: 0 4px;
+}
+@media (max-width: 360px) {
+  #filtros-tipo button .icono {
+    display: none; /* en pantallas muy angostas, solo el texto */
+  }
+}
+
+/* ---------- Visor de fotos en pantalla completa ----------
+   El visor del chat se abre dentro de #app. Aquí #app cubre la pantalla
+   entera sin estorbar: solo lo que se abre dentro recibe toques. */
+.papelera-capas {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+}
+.papelera-capas > * {
+  pointer-events: auto;
+}
+.papelera-capas > .avisos-flotantes {
+  pointer-events: none;
+}
+.foto-boton {
+  display: block;
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  cursor: zoom-in;
+}
+.foto-boton:focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: 2px;
+}
+.foto-boton img.foto {
+  margin-top: 0;
 }
 
 /* ---------- Día ---------- */

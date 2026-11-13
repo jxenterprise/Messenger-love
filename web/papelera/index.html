@@ -85,11 +85,19 @@
           Aquí queda lo que cualquiera de los dos eliminó del chat. <strong>Los dos ven lo mismo.</strong>
           Para que no quede nada, usen <em>Vaciar todo el chat</em> en el menú del chat.
         </p>
-        <div class="segmentos" role="group" aria-label="Filtrar" id="filtros"></div>
+        <!-- Qué ver: todo, solo textos, solo fotos o solo notas de voz -->
+        <div class="segmentos" role="group" aria-label="Qué ver" id="filtros-tipo"></div>
+        <!-- De quién: los dos, los míos o los de la pareja -->
+        <div class="segmentos" role="group" aria-label="De quién" id="filtros"></div>
         <div id="lista"></div>
       </section>
 
     </main>
+
+    <!-- Aquí se abren las fotos en grande (el mismo visor del chat) y los avisos -->
+    <div id="app" class="papelera-capas">
+      <div class="avisos-flotantes" id="avisos-flotantes" aria-live="polite"></div>
+    </div>
 
     <footer class="papelera-pie">
       <p>Messenger Estrellita y Jampier ❤️ · <span data-version></span></p>

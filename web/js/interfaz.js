@@ -3,7 +3,7 @@
    (avisos flotantes, diálogos, hojas, visor de fotos, efectos y sonido)
    ========================================================================== */
 import { icono } from './iconos.js';
-import { $, escaparHtml, movimientoReducido } from './utilidades.js';
+import { $, escaparHtml, movimientoReducido, plataforma } from './utilidades.js';
 
 const raiz = () => $('#app');
 
@@ -178,7 +178,8 @@ async function guardarImagen(url, nombreArchivo) {
   const respuesta = await fetch(url);
   const blob = await respuesta.blob();
   const archivo = new File([blob], nombreArchivo, { type: blob.type || 'image/webp' });
-  if (navigator.canShare?.({ files: [archivo] })) {
+  // Celular: menú del sistema ("Guardar imagen"). Computador: se descarga directo.
+  if (plataforma().tactil && navigator.canShare?.({ files: [archivo] })) {
     try {
       await navigator.share({ files: [archivo] });
       return;
