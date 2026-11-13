@@ -1,4 +1,4 @@
-﻿# Messenger Estrellita y Jampier ❤️
+# Messenger Estrellita y Jampier ❤️
 
 Un chat privado solo para ustedes dos: mensajes al instante, fotos, notas de voz, "Te extraño" y notificaciones. Cada uno entra con **su usuario** (`jampier` o `estrellita`) y **el mismo PIN de 4 números**. Es una web (HTML, CSS y JS) que se instala en el celular como una app, en Android, iPhone y computador.
 
