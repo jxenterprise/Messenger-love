@@ -6,9 +6,16 @@
    es propio de esta página.
    ========================================================================== */
 
+/* El chat bloquea el desplazamiento de la página (body con overflow: hidden,
+   en css/styles.css) porque ahí solo se desplaza la lista de mensajes. Aquí la
+   página entera es la que se desplaza: con la rueda del mouse, la barra y el
+   dedo en el celular. */
 .papelera-pagina {
   position: relative;
-  min-height: 100dvh;
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
   display: flex;
   flex-direction: column;
   background: var(--fondo);

@@ -6,7 +6,7 @@ Todo funciona con planes **gratis**: Supabase (la base de datos y el tiempo real
 
 > Tiempo total la primera vez: unos 40 minutos, con calma. Haz los pasos en orden y no te saltes ninguno.
 
-> 📍 **Estado actual (viernes 13 de noviembre de 2026, 10:50 p. m., hora de Colombia) · versión v1.11:** la app está **conectada a Supabase** (proyecto `messenger-eyj`, São Paulo), publicada en Cloudflare y **funcionando entre los dos**. Para entrar: **"Soy Jampier" o "Soy Estrellita" + el PIN**. Los ajustes y los avisos **no se reinician nunca**, hay cámara, se puede **vaciar el chat solo para ti o para los dos**, al compartir el enlace sale su foto, y hay una **[Papelera](#la-papelera-los-mensajes-eliminados)**: lo que eliminen del chat desde el 10 de noviembre queda guardado ahí y **los dos** pueden verlo; las fotos se abren en grande y se pueden descargar. El SQL de la v1.9 ya está ejecutado en Supabase. Lo nuevo de cada versión está en [Novedades](#novedades).
+> 📍 **Estado actual (viernes 13 de noviembre de 2026, 11:35 p. m., hora de Colombia) · versión v1.12:** la app está **conectada a Supabase** (proyecto `messenger-eyj`, São Paulo), publicada en Cloudflare y **funcionando entre los dos**. Para entrar: **"Soy Jampier" o "Soy Estrellita" + el PIN**. Los ajustes y los avisos **no se reinician nunca**, hay cámara, se puede **vaciar el chat solo para ti o para los dos**, al compartir el enlace sale su foto, y hay una **[Papelera](#la-papelera-los-mensajes-eliminados)**: lo que eliminen del chat desde el 10 de noviembre queda guardado ahí y **los dos** pueden verlo; las fotos se abren en grande y se pueden descargar. El SQL de la v1.9 ya está ejecutado en Supabase. Lo nuevo de cada versión está en [Novedades](#novedades).
 
 ---
 
@@ -345,6 +345,10 @@ Cloudflare Pages: gratis, sin límite de visitas. Para ver el consumo: Supabase 
 ## Novedades
 
 Numeración: **v1.0, v1.1, v1.2 … hasta v1.50; después v2.0**. Las primeras versiones tenían otro número; aquí van con los dos.
+
+**v1.12 · viernes 13 de noviembre de 2026, 11:35 p. m. — La Papelera ya se puede bajar**
+- **Arreglado: la página de la Papelera no bajaba.** Con varias fotos no se podía llegar a las de abajo (había que achicar la página con Ctrl + la rueda). La causa: los estilos del chat bloquean el desplazamiento de la página entera (en el chat solo se desplaza la lista de mensajes) y la Papelera los heredaba. Ahora la Papelera se desplaza sola: con la rueda del mouse, la barra lateral o el dedo en el celular, y la cabecera "Papelera" se queda fija arriba.
+- Pruebas nuevas: en el computador se baja con la rueda del mouse hasta el último mensaje, y en el celular se comprueba que la página se pueda desplazar.
 
 **v1.11 · viernes 13 de noviembre de 2026, 10:50 p. m. — Fotos en grande y filtros en la Papelera**
 - **Las fotos de la Papelera se abren en pantalla completa** al tocarlas (celular) o con un clic (computador), con el mismo visor del chat: se puede acercar tocando la foto y cerrar con la ✕, el "atrás" del celular o Esc.

@@ -67,6 +67,12 @@ try {
   ok(/Eliminado (hoy|ayer|el )/.test(texto), 'el día se lee natural: "Eliminado ayer", "Eliminado el lunes"…');
   const vacias = await p.$$eval('.eliminado .contenido', (cs) => cs.filter((c) => !c.querySelector('.texto, img, audio')).length);
   ok(vacias === 0, 'ninguna tarjeta queda vacía');
+  // Se tiene que poder bajar para ver todo (el chat bloquea el desplazamiento de la página)
+  const desplaza = await p.evaluate(() => {
+    const pag = document.querySelector('.papelera-pagina');
+    return { overflow: getComputedStyle(pag).overflowY, sobra: pag.scrollHeight > pag.clientHeight + 10 };
+  });
+  ok(desplaza.overflow === 'auto' && desplaza.sobra, 'celular: la página se puede bajar con el dedo para ver todas las fotos');
   await p.screenshot({ path: `${capturas}papelera-01-lista.png`, fullPage: true });
 
   // Filtro
@@ -236,6 +242,21 @@ try {
   ok(await p.isVisible('#estado-lista'), 'computador: la papelera se ve');
   const seSale = await p.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
   ok(!seSale, 'computador: nada se sale a los lados');
+  // Bajar con la rueda del mouse (pantalla bajita para que no quepa todo)
+  await p.setViewportSize({ width: 1280, height: 560 });
+  await p.mouse.move(640, 400);
+  for (let i = 0; i < 8; i++) await p.mouse.wheel(0, 400);
+  await p.waitForTimeout(500);
+  const abajo = await p.evaluate(() => {
+    const pag = document.querySelector('.papelera-pagina');
+    const ultima = [...document.querySelectorAll('.eliminado')].pop().getBoundingClientRect();
+    return { top: pag.scrollTop, ultimaSeVe: ultima.bottom <= window.innerHeight + 1 && ultima.top >= 0 };
+  });
+  ok(abajo.top > 0 && abajo.ultimaSeVe, 'computador: con la rueda del mouse la página baja hasta el último mensaje');
+  await p.screenshot({ path: `${capturas}papelera-06c-computador-abajo.png` });
+  await p.mouse.wheel(0, -5000);
+  await p.waitForTimeout(300);
+  await p.setViewportSize({ width: 1280, height: 800 });
   await p.waitForFunction(() => document.querySelector('.foto-boton img')?.naturalWidth > 0);
   await p.click('.foto-boton');
   await p.waitForSelector('.visor');
